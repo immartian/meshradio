@@ -178,7 +178,7 @@ func (s *Server) handleBroadcastStart(w http.ResponseWriter, r *http.Request) {
 	cfg := broadcaster.Config{
 		Callsign:    s.callsign,
 		IPv6:        s.ipv6,
-		Port:        9001,
+		Port:        0, // Use random available port
 		AudioConfig: audio.DefaultConfig(),
 	}
 
@@ -237,7 +237,7 @@ func (s *Server) handleListenStart(w http.ResponseWriter, r *http.Request) {
 	cfg := listener.Config{
 		TargetIPv6:  targetIPv6,
 		TargetPort:  9001,
-		LocalPort:   9002,
+		LocalPort:   0, // Use random available port
 		AudioConfig: audio.DefaultConfig(),
 	}
 

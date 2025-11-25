@@ -25,7 +25,7 @@ class MeshRadioGUI {
             console.log('WebSocket connected');
             this.reconnectAttempts = 0;
             this.updateNetworkStatus(true);
-            this.addLog('Connected to MeshRadio server', 'success');
+            this.addLog('MeshRadio interface ready', 'success');
         };
 
         this.ws.onmessage = (event) => {
