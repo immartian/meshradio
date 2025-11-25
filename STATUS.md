@@ -1,7 +1,7 @@
 # MeshRadio - Current Status
 
 **Last Updated**: 2025-11-25
-**Version**: 0.2-alpha
+**Version**: 0.3-alpha
 **Repository**: https://github.com/immartian/meshradio
 
 ---
@@ -28,12 +28,16 @@
 - ✅ **Stats Tracking** - Packet counts, sequences, station info
 
 ### User Interface
-- ✅ **Cross-platform TUI** - Works on Linux/Mac/Windows
-- ✅ **Real-time Updates** - UI refreshes every second
-- ✅ **Animated Status** - Live connection indicators
-- ✅ **Signal Visualization** - Strength bars and audio levels
-- ✅ **Activity Logs** - Recent events display
+- ✅ **Cross-platform TUI** - Works on Linux/Mac/Windows with Bubbletea
+- ✅ **Web GUI** - Modern glassmorphism design with WebSocket updates
+- ✅ **Dual Interface** - Run with `--gui` flag for web, default for TUI
+- ✅ **Real-time Updates** - UI refreshes every second via WebSocket
+- ✅ **Animated Status** - Live connection indicators and pulsing badges
+- ✅ **Signal Visualization** - Strength bars and audio level meters
+- ✅ **Activity Logs** - Recent events display with color coding
 - ✅ **Error Handling** - User-friendly error messages
+- ✅ **Scan Button** - Station discovery UI (placeholder functionality)
+- ✅ **Yggdrasil-Themed Ports** - 7999 (GUI), 8799 (broadcaster), 9799 (listener)
 
 ### Developer Tools
 - ✅ **Dependency Checker** - Script to verify system requirements
@@ -75,7 +79,26 @@
 
 ## 🚀 What You Can Test RIGHT NOW
 
-### Local Testing (Same Machine)
+### Web GUI Mode (Recommended)
+
+**Start the Web GUI**:
+```bash
+./meshradio --gui Martian
+# Or: ./meshradio --gui --callsign Martian
+# Or: MESHRADIO_CALLSIGN=Martian ./meshradio --gui
+```
+
+**What You Get**:
+- Modern glassmorphism web interface at http://localhost:7999
+- Real-time WebSocket updates every second
+- Start/stop broadcasting with one click
+- Listen to stations by entering their IPv6
+- Scan button for future station discovery
+- Activity log with color-coded messages
+- Audio level meters and signal strength visualization
+- Animated status badges (pulsing when live)
+
+### Terminal UI Mode (Classic)
 
 **Terminal 1 - Broadcaster**:
 ```bash
@@ -124,11 +147,16 @@ export MESHRADIO_CALLSIGN="STATION2"
 | Broadcaster | ✅ Working | Transmits frames |
 | Listener | ✅ Working | Receives frames |
 | TUI | ✅ Working | Real-time updates |
+| Web GUI | ✅ Working | Modern glassmorphism design |
+| WebSocket Updates | ✅ Working | Real-time status sync |
+| REST API | ✅ Working | Broadcast/listen control |
+| Yggdrasil Ports | ✅ Working | 7999/8799/9799 ("799" theme) |
 | Audio Capture | ⏳ Simulated | Needs PortAudio |
 | Audio Playback | ⏳ Simulated | Needs PortAudio |
 | Audio Codec | ⏳ Pass-through | Needs Opus |
+| Station Scanning | ⏳ UI Ready | Backend not implemented |
 | Station Discovery | ❌ Not Started | Phase 2 |
-| IPv6 Scanning | ❌ Not Started | Phase 2 |
+| IPv6 Range Scan | ❌ Not Started | Phase 2 |
 | DHT Registry | ❌ Not Started | Phase 3 |
 
 ---
@@ -313,13 +341,18 @@ sudo pacman -S portaudio opus
 
 ## 🚦 Roadmap
 
-### v0.2-alpha (Current)
+### v0.2-alpha
 - ✅ Yggdrasil integration
 - ✅ Network transmission
-- ✅ Enhanced UI
+- ✅ Enhanced TUI
 
-### v0.3-alpha (Next - Real Audio)
-- ⏳ PortAudio integration
+### v0.3-alpha (Current)
+- ✅ Web GUI with glassmorphism design
+- ✅ WebSocket real-time updates
+- ✅ REST API for control
+- ✅ Yggdrasil-themed ports (7999/8799/9799)
+- ✅ Scan button UI (placeholder)
+- ⏳ PortAudio integration (next priority)
 - ⏳ Opus codec
 - ⏳ Real audio streaming
 
