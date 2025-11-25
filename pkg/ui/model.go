@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -61,7 +62,20 @@ func NewModel(callsign string, ipv6 net.IP) Model {
 
 // Init initializes the model
 func (m Model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.Batch(
+		textinput.Blink,
+		tickCmd(),
+	)
+}
+
+// tickMsg is sent on each tick for UI updates
+type tickMsg time.Time
+
+// tickCmd returns a command that ticks every second
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
 }
 
 // Update handles messages and updates the model
@@ -74,6 +88,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		return m, nil
+
+	case tickMsg:
+		// Refresh UI every second
+		return m, tickCmd()
 
 	case errMsg:
 		m.err = msg
@@ -343,16 +361,29 @@ func (m Model) renderBroadcast() string {
 
 	status := statusStyle.Render("● BROADCASTING")
 
-	info := fmt.Sprintf(`
-%s
+	// Audio level bar (simulated)
+	audioLevel := "▓▓▓▓▓░░░░░"
 
-Station: %s
-Address: %s:9001
-Codec:   Opus (simulated)
-Quality: 48kHz, Mono, 64kbps
+	// Running indicator (animated)
+	dots := strings.Repeat(".", (int(time.Now().Unix()) % 4))
+
+	info := fmt.Sprintf(`
+%s %s
+
+Station:  %s
+Address:  %s:9001
+Codec:    Opus (simulated)
+Quality:  48kHz, Mono, 64kbps
+Multicast: ff02::1 (all local nodes)
+
+Audio Level: %s
+
+📡 Transmitting audio frames...
+   Network: UDP multicast
+   Status: Active
 
 Press 'q' or ESC to stop broadcasting
-`, status, m.callsign, m.localIPv6.String())
+`, status, dots, m.callsign, m.localIPv6.String(), audioLevel)
 
 	return info
 }
@@ -365,24 +396,39 @@ func (m Model) renderListen() string {
 
 	status := statusStyle.Render("● LISTENING")
 
+	// Running indicator (animated)
+	dots := strings.Repeat(".", (int(time.Now().Unix()) % 4))
+
 	var stationInfo string
+	var signalBar string
 	if m.listener != nil {
 		packets, seq, station := m.listener.GetStats()
 		if station != "" {
 			stationInfo = fmt.Sprintf("Station: %s", station)
+			// Signal strength bar based on packets received
+			strength := packets % 10
+			signalBar = strings.Repeat("▓", int(strength)) + strings.Repeat("░", 10-int(strength))
 		} else {
-			stationInfo = "Station: Waiting for beacon..."
+			stationInfo = "Station: Waiting for signal..."
+			signalBar = "░░░░░░░░░░"
 		}
-		stationInfo += fmt.Sprintf("\nPackets: %d | Last Seq: %d", packets, seq)
+		stationInfo += fmt.Sprintf("\nPackets: %d | Sequence: %d", packets, seq)
 	}
 
 	info := fmt.Sprintf(`
-%s
+%s %s
 
 %s
+
+Signal:  %s
+Network: Receiving on port 9002
+
+🎧 Listening for audio...
+   Codec: Opus
+   Buffer: Good
 
 Press 'q' or ESC to stop listening
-`, status, stationInfo)
+`, status, dots, stationInfo, signalBar)
 
 	return info
 }

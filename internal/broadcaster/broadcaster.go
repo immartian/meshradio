@@ -15,6 +15,7 @@ import (
 type Broadcaster struct {
 	callsign   string
 	ipv6       net.IP
+	port       int
 	transport  *network.Transport
 	audioIn    *audio.InputStream
 	codec      audio.Codec
@@ -23,6 +24,10 @@ type Broadcaster struct {
 	mu         sync.Mutex
 	seqNum     uint8
 	stopChan   chan struct{}
+
+	// Multicast address for broadcasting
+	multicastAddr net.IP
+	multicastPort int
 }
 
 // Config holds broadcaster configuration
@@ -43,14 +48,20 @@ func New(cfg Config) (*Broadcaster, error) {
 	audioIn := audio.NewInputStream(cfg.AudioConfig)
 	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
 
+	// Use multicast for broadcasting (ff02::1 = all nodes link-local)
+	multicastAddr := net.ParseIP("ff02::1")
+
 	return &Broadcaster{
-		callsign:  cfg.Callsign,
-		ipv6:      cfg.IPv6,
-		transport: transport,
-		audioIn:   audioIn,
-		codec:     codec,
-		config:    cfg.AudioConfig,
-		stopChan:  make(chan struct{}),
+		callsign:      cfg.Callsign,
+		ipv6:          cfg.IPv6,
+		port:          cfg.Port,
+		transport:     transport,
+		audioIn:       audioIn,
+		codec:         codec,
+		config:        cfg.AudioConfig,
+		stopChan:      make(chan struct{}),
+		multicastAddr: multicastAddr,
+		multicastPort: cfg.Port,
 	}, nil
 }
 
@@ -146,13 +157,16 @@ func (b *Broadcaster) broadcastLoop() {
 		packet.SequenceNum = b.seqNum
 		b.seqNum++
 
-		// Broadcast to multicast group (for MVP, we'll just prepare the packet)
-		// In production, this would send to listeners
-		_ = packet
+		// Broadcast to multicast group
+		err = b.transport.Send(packet, b.multicastAddr, b.multicastPort)
+		if err != nil && b.seqNum%100 == 0 {
+			fmt.Printf("Broadcast error: %v\n", err)
+		}
 
-		// For MVP, we'll log that we're broadcasting
+		// Log periodically
 		if b.seqNum%50 == 0 { // Log every 50 frames (~1 second)
-			fmt.Printf("Broadcasting: seq=%d, size=%d bytes\n", packet.SequenceNum, len(encoded))
+			fmt.Printf("Broadcasting: seq=%d, size=%d bytes to %s\n",
+				packet.SequenceNum, len(encoded), b.multicastAddr.String())
 		}
 	}
 }
@@ -168,16 +182,24 @@ func (b *Broadcaster) beaconLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			// Send beacon
+			// Send beacon with station info
+			beaconData := fmt.Sprintf(`{"callsign":"%s","ipv6":"%s","port":%d}`,
+				b.callsign, b.ipv6.String(), b.port)
+
 			beacon := protocol.NewPacket(
 				protocol.PacketTypeBeacon,
 				ipv6Bytes,
 				b.callsign,
-				[]byte("{}"), // Empty JSON for MVP
+				[]byte(beaconData),
 			)
 
-			fmt.Printf("Sending beacon: %s at %s\n", b.callsign, b.ipv6.String())
-			_ = beacon
+			// Send beacon to multicast
+			err := b.transport.Send(beacon, b.multicastAddr, b.multicastPort)
+			if err != nil {
+				fmt.Printf("Beacon send error: %v\n", err)
+			} else {
+				fmt.Printf("Sent beacon: %s at %s\n", b.callsign, b.ipv6.String())
+			}
 
 		case <-b.stopChan:
 			return
