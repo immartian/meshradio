@@ -236,8 +236,8 @@ func (s *Server) handleListenStart(w http.ResponseWriter, r *http.Request) {
 
 	cfg := listener.Config{
 		TargetIPv6:  targetIPv6,
-		TargetPort:  8799, // 799 ~ Ygg
-		LocalPort:   10799, // 799 ~ Ygg
+		TargetPort:  8799, // 799 ~ Ygg (broadcaster port)
+		LocalPort:   9799, // 799 ~ Ygg (listener port, pairs with 8799)
 		AudioConfig: audio.DefaultConfig(),
 	}
 

@@ -90,12 +90,17 @@
 
                     <div class="input-group" id="listen-input">
                         <label for="target-ipv6">Station IPv6:</label>
-                        <input
-                            type="text"
-                            id="target-ipv6"
-                            placeholder="201:abcd:1234::1"
-                            class="mono"
-                        >
+                        <div class="input-with-button">
+                            <input
+                                type="text"
+                                id="target-ipv6"
+                                placeholder="201:abcd:1234::1"
+                                class="mono"
+                            >
+                            <button id="scan-btn" class="btn btn-scan" title="Scan for stations">
+                                🔍 Scan
+                            </button>
+                        </div>
                     </div>
 
                     <button id="listen-btn" class="btn btn-secondary">

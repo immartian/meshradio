@@ -240,6 +240,16 @@ header h1 {
     color: rgba(255, 255, 255, 0.5);
 }
 
+/* Input with button */
+.input-with-button {
+    display: flex;
+    gap: 10px;
+}
+
+.input-with-button input {
+    flex: 1;
+}
+
 /* Buttons */
 .btn {
     padding: 15px 30px;
@@ -279,6 +289,19 @@ header h1 {
 
 .btn-secondary.active {
     background: #0e7490;
+}
+
+.btn-scan {
+    background: var(--warning);
+    color: #fff;
+    padding: 12px 20px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.btn-scan:hover {
+    background: #d97706;
+    transform: scale(1.05);
 }
 
 .btn:disabled {

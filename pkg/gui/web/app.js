@@ -65,6 +65,27 @@ class MeshRadioGUI {
         document.getElementById('listen-btn').addEventListener('click', () => {
             this.toggleListen();
         });
+
+        // Scan button
+        document.getElementById('scan-btn').addEventListener('click', () => {
+            this.scanForStations();
+        });
+    }
+
+    async scanForStations() {
+        this.addLog('Scanning for stations on mesh network...', 'info');
+        const btn = document.getElementById('scan-btn');
+        btn.disabled = true;
+        btn.textContent = '🔍 Scanning...';
+
+        // TODO: Implement actual scanning
+        // For now, show a placeholder message
+        setTimeout(() => {
+            this.addLog('Scan feature coming soon! Will discover stations automatically.', 'info');
+            this.addLog('For now, enter IPv6 address manually.', 'info');
+            btn.disabled = false;
+            btn.textContent = '🔍 Scan';
+        }, 1500);
     }
 
     async toggleBroadcast() {
