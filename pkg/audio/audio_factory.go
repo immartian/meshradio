@@ -23,47 +23,23 @@ func GetBackend() AudioBackend {
 }
 
 // NewInputStreamAuto creates the best available input stream
-func NewInputStreamAuto(config StreamConfig) (interface{}, error) {
-	backend := GetBackend()
-
-	switch backend {
-	case BackendPortAudio:
-		fmt.Fprintln(os.Stderr, "🎤 Using real microphone (PortAudio)")
-		return NewPortAudioInputStream(config)
-
-	case BackendSimulated:
-		fmt.Fprintln(os.Stderr, "🔇 Using simulated audio (install PortAudio for real audio)")
-		return NewInputStream(config), nil
-	}
-
+func NewInputStreamAuto(config StreamConfig) (*InputStream, error) {
+	// Always use simulated for now (PortAudio requires build tags)
+	fmt.Fprintln(os.Stderr, "🔇 Using simulated audio (rebuild with -tags portaudio for real audio)")
 	return NewInputStream(config), nil
 }
 
 // NewOutputStreamAuto creates the best available output stream
-func NewOutputStreamAuto(config StreamConfig) (interface{}, error) {
-	backend := GetBackend()
-
-	switch backend {
-	case BackendPortAudio:
-		fmt.Fprintln(os.Stderr, "🔊 Using real speakers (PortAudio)")
-		return NewPortAudioOutputStream(config)
-
-	case BackendSimulated:
-		fmt.Fprintln(os.Stderr, "🔇 Using simulated audio (install PortAudio for real audio)")
-		return NewOutputStream(config), nil
-	}
-
+func NewOutputStreamAuto(config StreamConfig) (*OutputStream, error) {
+	// Always use simulated for now (PortAudio requires build tags)
+	fmt.Fprintln(os.Stderr, "🔇 Using simulated audio (rebuild with -tags portaudio for real audio)")
 	return NewOutputStream(config), nil
 }
 
 // NewCodecAuto creates the best available codec
 func NewCodecAuto(sampleRate, channels, frameSize int) (Codec, error) {
-	if hasOpus {
-		fmt.Fprintln(os.Stderr, "🎵 Using Opus codec")
-		return NewOpusCodec(sampleRate, channels, frameSize)
-	}
-
-	fmt.Fprintln(os.Stderr, "⚠️  Using dummy codec (install Opus for compression)")
+	// Always use dummy codec for now (Opus requires build tags)
+	fmt.Fprintln(os.Stderr, "⚠️  Using dummy codec (rebuild with -tags opus for compression)")
 	return NewDummyCodec(frameSize), nil
 }
 

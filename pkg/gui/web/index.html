@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeshRadio - Decentralized Broadcasting</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>📻 MeshRadio</h1>
+            <p class="subtitle">Decentralized Broadcasting over Yggdrasil Mesh</p>
+        </header>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <div class="status-item">
+                <span class="label">Callsign:</span>
+                <span class="value" id="callsign">-</span>
+            </div>
+            <div class="status-item">
+                <span class="label">IPv6:</span>
+                <span class="value mono" id="ipv6">-</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Mode:</span>
+                <span class="value status-badge" id="mode">Idle</span>
+            </div>
+            <div class="status-item">
+                <span class="label">Network:</span>
+                <span class="status-indicator" id="network-status">●</span>
+                <span class="value" id="network-text">Connected</span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Broadcast Panel -->
+            <div class="panel">
+                <h2>🎙️ Broadcast</h2>
+                <div class="panel-content">
+                    <p>Start broadcasting your audio to the mesh network</p>
+
+                    <div class="broadcast-info" id="broadcast-info" style="display: none;">
+                        <div class="info-item">
+                            <strong>Status:</strong> <span class="broadcasting">● LIVE</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Address:</strong> <span id="broadcast-addr" class="mono">-</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Multicast:</strong> ff02::1 (all local nodes)
+                        </div>
+                        <div class="audio-meter">
+                            <div class="meter-bar">
+                                <div class="meter-fill" id="audio-level"></div>
+                            </div>
+                            <span class="meter-label">Audio Level</span>
+                        </div>
+                    </div>
+
+                    <button id="broadcast-btn" class="btn btn-primary">
+                        Start Broadcasting
+                    </button>
+                </div>
+            </div>
+
+            <!-- Listen Panel -->
+            <div class="panel">
+                <h2>🎧 Listen</h2>
+                <div class="panel-content">
+                    <p>Tune into a station on the mesh network</p>
+
+                    <div class="listen-info" id="listen-info" style="display: none;">
+                        <div class="info-item">
+                            <strong>Station:</strong> <span id="station-name">Unknown</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Packets:</strong> <span id="packet-count">0</span>
+                        </div>
+                        <div class="signal-meter">
+                            <div class="meter-bar">
+                                <div class="meter-fill signal" id="signal-strength"></div>
+                            </div>
+                            <span class="meter-label">Signal Strength</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group" id="listen-input">
+                        <label for="target-ipv6">Station IPv6:</label>
+                        <input
+                            type="text"
+                            id="target-ipv6"
+                            placeholder="201:abcd:1234::1"
+                            class="mono"
+                        >
+                    </div>
+
+                    <button id="listen-btn" class="btn btn-secondary">
+                        Start Listening
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="activity-panel">
+            <h3>📋 Recent Activity</h3>
+            <div class="activity-log" id="activity-log">
+                <div class="log-entry">Ready to broadcast or listen...</div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer>
+            <p>MeshRadio v0.3-alpha |
+               <a href="https://github.com/immartian/meshradio" target="_blank">GitHub</a> |
+               Built with Yggdrasil Mesh Network
+            </p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
