@@ -1,236 +1,136 @@
 # MeshRadio Quick Start Guide
 
-## What You've Built
-
-A working MVP of MeshRadio - a HAM radio-style broadcasting system over Yggdrasil mesh network!
-
-## Features (MVP v0.1)
-
-✅ **Broadcaster** - Stream audio from your station
-✅ **Listener** - Tune into other stations by IPv6
-✅ **Cross-platform TUI** - Beautiful terminal interface
-✅ **Protocol** - Full packet encoding/decoding
-✅ **Audio Pipeline** - Ready for Opus codec integration
-
-## Running MeshRadio
-
-### 1. Set Your Callsign
+## 🚀 Run the Web GUI
 
 ```bash
-export MESHRADIO_CALLSIGN="W1AW"
+# Navigate to project
+cd /media/im3/plus/labx/meshradio
+
+# Run with your callsign
+/tmp/meshradio --gui YourCallsign
+
+# Open in browser
+# → http://localhost:7999
 ```
 
-Or pass as argument:
-```bash
-./meshradio MYCALLSIGN
-```
+## 📻 Basic Usage
 
-### 2. Launch the TUI
+### Broadcasting
+1. Open http://localhost:7999
+2. Click **"Start Broadcasting"**
+3. Your station is now LIVE on the mesh!
+4. Share your IPv6 with listeners
 
-```bash
-./meshradio
-```
+### Listening
+1. Get broadcaster's IPv6 address
+2. Open http://localhost:7999
+3. Enter IPv6 in the "Station IPv6" field
+4. Click **"Start Listening"**
 
-### 3. Main Menu Options
-
-- **[b]** - Start Broadcasting
-  - Broadcasts on your Yggdrasil IPv6 address
-  - Port: 9001
-  - Simulated audio (silence) for MVP
-
-- **[l]** - Listen to Station
-  - Enter target IPv6 address
-  - Receives and "plays" audio stream
-
-- **[i]** - Show Info
-  - Display your callsign and IPv6
-
-- **[q]** - Quit
-
-### 4. Broadcasting
-
-Press `b` to start broadcasting:
-```
-● BROADCASTING
-
-Station: W1AW
-Address: 200::1:9001
-Codec:   Opus (simulated)
-Quality: 48kHz, Mono, 64kbps
-
-Press 'q' or ESC to stop broadcasting
-```
-
-Your station is now live! Others can connect to your IPv6 address.
-
-### 5. Listening
-
-Press `l` and enter a station's IPv6:
-```
-Enter station IPv6 to listen:
-200:1234:5678:abcd::1
-
-(Press ESC to cancel)
-```
-
-Once connected:
-```
-● LISTENING
-
-Station: W2XYZ
-Packets: 150 | Last Seq: 42
-
-Press 'q' or ESC to stop listening
-```
-
-## Testing Locally
-
-### Terminal 1 (Broadcaster)
-```bash
-export MESHRADIO_CALLSIGN="STATION1"
-./meshradio
-# Press 'b' to broadcast
-```
-
-### Terminal 2 (Listener)
-```bash
-export MESHRADIO_CALLSIGN="STATION2"
-./meshradio
-# Press 'l' and enter: ::1 (localhost)
-```
-
-## What's Simulated (MVP)
-
-🔧 **Audio Capture** - Currently generates silence
-- Replace with PortAudio in production
-- Location: `pkg/audio/stream.go`
-
-🔧 **Audio Playback** - Currently discards received audio
-- Replace with PortAudio in production
-- Location: `pkg/audio/stream.go`
-
-🔧 **Codec** - Pass-through (no compression)
-- Integrate libopus for real codec
-- Location: `pkg/audio/codec.go`
-
-🔧 **Yggdrasil Integration** - Uses placeholder IPv6
-- Query yggdrasilctl for real address
-- Location: `cmd/meshradio/main.go:getLocalIPv6()`
-
-## Next Steps
-
-### Phase 1: Real Audio
-1. Install PortAudio bindings
-2. Implement real capture/playback
-3. Integrate Opus codec
-
-### Phase 2: Yggdrasil Integration
-1. Query yggdrasilctl for IPv6
-2. Auto-detect Yggdrasil daemon
-3. Use real mesh routing
-
-### Phase 3: Discovery
-1. Implement scanner
-2. Add station database
-3. DHT for station registry
-
-### Phase 4: Features
-1. Bookmarks
-2. Signal quality metrics
-3. Station metadata
-4. Recording
-
-## Architecture
-
-```
-meshradio/
-├── cmd/meshradio/           # Main entry point
-├── pkg/
-│   ├── protocol/            # Packet format & encoding
-│   ├── audio/               # Audio streaming & codecs
-│   ├── network/             # UDP transport layer
-│   └── ui/                  # Bubbletea TUI
-└── internal/
-    ├── broadcaster/         # Broadcasting logic
-    └── listener/            # Listening logic
-```
-
-## Troubleshooting
-
-### Build Errors
+## 🎛️ Command Options
 
 ```bash
-# Ensure Go is in PATH
-export PATH=$PATH:/usr/local/go/bin
+# Web GUI with callsign
+./meshradio --gui Martian
 
-# Tidy modules
-go mod tidy
+# Terminal UI (default)
+./meshradio Martian
 
-# Rebuild
-go build -o meshradio ./cmd/meshradio
+# Custom port
+./meshradio --gui --port 8000 Martian
+
+# Using environment variable
+MESHRADIO_CALLSIGN=Martian ./meshradio --gui
+
+# Using explicit flag
+./meshradio --gui --callsign Martian
 ```
 
-### Runtime Issues
+## 🔧 Port Numbers
 
-1. **Cannot bind to port 9001**
-   - Port might be in use
-   - Try: `sudo lsof -i :9001`
+All ports use Yggdrasil theme ("799"):
 
-2. **No audio**
-   - This is expected in MVP!
-   - Audio is simulated (silence)
+- **7999** - Web GUI
+- **8799** - Broadcaster
+- **9799** - Listener
 
-3. **Connection refused**
-   - Check target IPv6 is correct
-   - Ensure broadcaster is running
-   - Test with localhost (::1) first
+## 📋 Features
 
-## Code Tour
+### ✅ Working Now
+- Web GUI with real-time updates
+- Broadcasting to mesh network
+- Listening to remote stations
+- Activity logging
+- Status visualization
+- Both TUI and GUI modes
 
-### Broadcasting Flow
-```
-main.go → ui/model.go → broadcaster/broadcaster.go
-                      ↓
-                audio/stream.go (capture)
-                      ↓
-                audio/codec.go (encode)
-                      ↓
-                protocol/packet.go (packetize)
-                      ↓
-                network/transport.go (send UDP)
-```
+### ⏳ Coming Soon
+- Real audio (currently simulated)
+- Station scanning
+- Audio device selection
+- Recording functionality
 
-### Listening Flow
-```
-main.go → ui/model.go → listener/listener.go
-                      ↓
-                network/transport.go (receive UDP)
-                      ↓
-                protocol/packet.go (parse)
-                      ↓
-                audio/codec.go (decode)
-                      ↓
-                audio/stream.go (playback)
+## 🐛 Troubleshooting
+
+### Port Already in Use
+Change the GUI port:
+```bash
+./meshradio --gui --port 8000 Martian
 ```
 
-## Contributing
+### Can't Execute Binary
+Copy to /tmp/:
+```bash
+cp meshradio /tmp/
+/tmp/meshradio --gui Martian
+```
 
-Want to help? Here are great starting points:
+### Yggdrasil Not Detected
+Check if Yggdrasil is running:
+```bash
+yggdrasilctl getSelf
+```
 
-1. **Add real audio I/O** - Integrate PortAudio
-2. **Opus codec** - Add libopus bindings
-3. **Yggdrasil query** - Parse yggdrasilctl output
-4. **Scanner** - Implement IPv6 range scanning
-5. **Better UI** - Add more visualizations
+Install if needed:
+```bash
+# Ubuntu/Debian
+sudo apt-get install yggdrasil
 
-## License
+# Or follow: https://yggdrasil-network.github.io/installation.html
+```
 
-GPL-3.0 - See LICENSE file
+## 📚 More Documentation
+
+- `DESIGN.md` - System architecture
+- `STATUS.md` - Current implementation status
+- `COMPLETION_SUMMARY.md` - Full feature documentation
+- `AUDIO_SETUP.md` - Real audio integration guide
+
+## 🎯 Next Steps
+
+1. **Test Broadcasting**
+   - Start broadcaster on one machine
+   - Start listener on another
+   - Verify packets are received
+
+2. **Explore the GUI**
+   - Try all buttons
+   - Watch activity log
+   - Monitor meters
+
+3. **Add Real Audio** (Advanced)
+   - See `AUDIO_SETUP.md`
+   - Install PortAudio and Opus
+   - Build with audio support
+
+## 🔗 Links
+
+- **Repository**: https://github.com/immartian/meshradio
+- **Yggdrasil**: https://yggdrasil-network.github.io/
+- **Issues**: https://github.com/immartian/meshradio/issues
 
 ---
 
-**Status**: MVP Complete ✅
-**Version**: 0.1-alpha
-**Date**: 2025-11-25
+**Ready to broadcast on the mesh!** 📻
 
-Ready to broadcast on the mesh! 📻
+*Version: 0.3-alpha*
