@@ -20,6 +20,10 @@ const (
 	PacketTypeDiscoveryResp  uint8 = 0x06
 	PacketTypeSignalReport   uint8 = 0x09
 	PacketTypeEmergency      uint8 = 0x0A
+
+	// Subscription-based streaming (MVP)
+	PacketTypeSubscribe      uint8 = 0x10
+	PacketTypeHeartbeat      uint8 = 0x11
 )
 
 // Packet flags

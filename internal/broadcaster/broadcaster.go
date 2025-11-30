@@ -11,7 +11,16 @@ import (
 	"github.com/meshradio/meshradio/pkg/protocol"
 )
 
-// Broadcaster streams audio to the network
+// ListenerConn represents a connected listener
+type ListenerConn struct {
+	IPv6        net.IP
+	Port        uint16
+	Callsign    string
+	ConnectedAt time.Time
+	LastSeen    time.Time
+}
+
+// Broadcaster streams audio to subscribed listeners
 type Broadcaster struct {
 	callsign   string
 	ipv6       net.IP
@@ -25,9 +34,9 @@ type Broadcaster struct {
 	seqNum     uint8
 	stopChan   chan struct{}
 
-	// Multicast address for broadcasting
-	multicastAddr net.IP
-	multicastPort int
+	// Subscription-based listener management
+	listeners    map[string]*ListenerConn // key: "ipv6:port"
+	listenersMux sync.RWMutex
 }
 
 // Config holds broadcaster configuration
@@ -48,20 +57,16 @@ func New(cfg Config) (*Broadcaster, error) {
 	audioIn := audio.NewInputStream(cfg.AudioConfig)
 	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
 
-	// Use multicast for broadcasting (ff02::1 = all nodes link-local)
-	multicastAddr := net.ParseIP("ff02::1")
-
 	return &Broadcaster{
-		callsign:      cfg.Callsign,
-		ipv6:          cfg.IPv6,
-		port:          cfg.Port,
-		transport:     transport,
-		audioIn:       audioIn,
-		codec:         codec,
-		config:        cfg.AudioConfig,
-		stopChan:      make(chan struct{}),
-		multicastAddr: multicastAddr,
-		multicastPort: cfg.Port,
+		callsign:  cfg.Callsign,
+		ipv6:      cfg.IPv6,
+		port:      cfg.Port,
+		transport: transport,
+		audioIn:   audioIn,
+		codec:     codec,
+		config:    cfg.AudioConfig,
+		stopChan:  make(chan struct{}),
+		listeners: make(map[string]*ListenerConn),
 	}, nil
 }
 
@@ -88,8 +93,11 @@ func (b *Broadcaster) Start() error {
 	// Start broadcast loop
 	go b.broadcastLoop()
 
-	// Send periodic beacons
-	go b.beaconLoop()
+	// Handle incoming subscriptions and heartbeats
+	go b.subscriptionLoop()
+
+	// Monitor listener timeouts
+	go b.heartbeatMonitor()
 
 	return nil
 }
@@ -112,7 +120,7 @@ func (b *Broadcaster) Stop() error {
 	return nil
 }
 
-// broadcastLoop continuously broadcasts audio
+// broadcastLoop continuously broadcasts audio to subscribed listeners
 func (b *Broadcaster) broadcastLoop() {
 	var ipv6Bytes [16]byte
 	copy(ipv6Bytes[:], b.ipv6.To16())
@@ -157,49 +165,109 @@ func (b *Broadcaster) broadcastLoop() {
 		packet.SequenceNum = b.seqNum
 		b.seqNum++
 
-		// Broadcast to multicast group
-		err = b.transport.Send(packet, b.multicastAddr, b.multicastPort)
-		if err != nil && b.seqNum%100 == 0 {
-			fmt.Printf("Broadcast error: %v\n", err)
+		// Send to all subscribed listeners (unicast to each)
+		b.listenersMux.RLock()
+		listenerCount := len(b.listeners)
+		for _, listener := range b.listeners {
+			err = b.transport.Send(packet, listener.IPv6, int(listener.Port))
+			if err != nil && b.seqNum%100 == 0 {
+				fmt.Printf("Send error to %s: %v\n", listener.Callsign, err)
+			}
 		}
+		b.listenersMux.RUnlock()
 
 		// Log periodically
 		if b.seqNum%50 == 0 { // Log every 50 frames (~1 second)
-			fmt.Printf("Broadcasting: seq=%d, size=%d bytes to %s\n",
-				packet.SequenceNum, len(encoded), b.multicastAddr.String())
+			fmt.Printf("Broadcasting: seq=%d, size=%d bytes to %d listeners\n",
+				packet.SequenceNum, len(encoded), listenerCount)
 		}
 	}
 }
 
-// beaconLoop sends periodic station beacons
-func (b *Broadcaster) beaconLoop() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
+// subscriptionLoop handles incoming SUBSCRIBE and HEARTBEAT packets
+func (b *Broadcaster) subscriptionLoop() {
+	for {
+		select {
+		case <-b.stopChan:
+			return
+		default:
+		}
 
-	var ipv6Bytes [16]byte
-	copy(ipv6Bytes[:], b.ipv6.To16())
+		// Receive packet from transport
+		packet, err := b.transport.Receive()
+		if err != nil {
+			continue
+		}
+
+		switch packet.Type {
+		case protocol.PacketTypeSubscribe:
+			b.handleSubscribe(packet)
+		case protocol.PacketTypeHeartbeat:
+			b.handleHeartbeat(packet)
+		}
+	}
+}
+
+// handleSubscribe processes a subscription request
+func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
+	sub, err := protocol.UnmarshalSubscribe(packet.Payload)
+	if err != nil {
+		fmt.Printf("Invalid subscribe packet: %v\n", err)
+		return
+	}
+
+	listenerIP := protocol.BytesToIPv6(sub.ListenerIPv6)
+	listenerKey := fmt.Sprintf("%s:%d", listenerIP.String(), sub.ListenerPort)
+
+	b.listenersMux.Lock()
+	b.listeners[listenerKey] = &ListenerConn{
+		IPv6:        listenerIP,
+		Port:        sub.ListenerPort,
+		Callsign:    protocol.GetCallsignString(sub.Callsign),
+		ConnectedAt: time.Now(),
+		LastSeen:    time.Now(),
+	}
+	b.listenersMux.Unlock()
+
+	fmt.Printf("New listener: %s (%s)\n", protocol.GetCallsignString(sub.Callsign), listenerIP.String())
+}
+
+// handleHeartbeat processes a heartbeat from listener
+func (b *Broadcaster) handleHeartbeat(packet *protocol.Packet) {
+	hb, err := protocol.UnmarshalHeartbeat(packet.Payload)
+	if err != nil {
+		return
+	}
+
+	listenerIP := protocol.BytesToIPv6(hb.ListenerIPv6)
+
+	b.listenersMux.Lock()
+	for key, listener := range b.listeners {
+		if listener.IPv6.Equal(listenerIP) {
+			listener.LastSeen = time.Now()
+			b.listeners[key] = listener
+			break
+		}
+	}
+	b.listenersMux.Unlock()
+}
+
+// heartbeatMonitor removes listeners that haven't sent heartbeat
+func (b *Broadcaster) heartbeatMonitor() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ticker.C:
-			// Send beacon with station info
-			beaconData := fmt.Sprintf(`{"callsign":"%s","ipv6":"%s","port":%d}`,
-				b.callsign, b.ipv6.String(), b.port)
-
-			beacon := protocol.NewPacket(
-				protocol.PacketTypeBeacon,
-				ipv6Bytes,
-				b.callsign,
-				[]byte(beaconData),
-			)
-
-			// Send beacon to multicast
-			err := b.transport.Send(beacon, b.multicastAddr, b.multicastPort)
-			if err != nil {
-				fmt.Printf("Beacon send error: %v\n", err)
-			} else {
-				fmt.Printf("Sent beacon: %s at %s\n", b.callsign, b.ipv6.String())
+			b.listenersMux.Lock()
+			for key, listener := range b.listeners {
+				if time.Since(listener.LastSeen) > 15*time.Second {
+					fmt.Printf("Listener timeout: %s\n", listener.Callsign)
+					delete(b.listeners, key)
+				}
 			}
+			b.listenersMux.Unlock()
 
 		case <-b.stopChan:
 			return
@@ -222,4 +290,23 @@ func (b *Broadcaster) IsRunning() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.running
+}
+
+// GetListenerCount returns the number of connected listeners
+func (b *Broadcaster) GetListenerCount() int {
+	b.listenersMux.RLock()
+	defer b.listenersMux.RUnlock()
+	return len(b.listeners)
+}
+
+// GetListeners returns a snapshot of current listeners
+func (b *Broadcaster) GetListeners() []ListenerConn {
+	b.listenersMux.RLock()
+	defer b.listenersMux.RUnlock()
+
+	listeners := make([]ListenerConn, 0, len(b.listeners))
+	for _, l := range b.listeners {
+		listeners = append(listeners, *l)
+	}
+	return listeners
 }

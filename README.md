@@ -6,12 +6,16 @@ Decentralized radio broadcasting over Yggdrasil mesh network.
 
 MeshRadio brings HAM radio-style broadcasting to the Yggdrasil mesh network. Use IPv6 addresses as "frequencies" to broadcast and listen to audio streams across the mesh.
 
-## Features (MVP)
+**Architecture:** Subscription-based unicast streaming. Listeners "tune" to a broadcaster's IPv6:port, establishing a direct connection. No multicast required.
+
+## Features (v0.4-alpha MVP)
 
 - **Broadcast** audio from your microphone to your Yggdrasil IPv6
-- **Listen** to stations by dialing their IPv6 address
-- **Cross-platform** terminal UI
-- **Low latency** audio streaming with Opus codec
+- **Listen** to stations by dialing their IPv6:port (subscription-based)
+- **Listener tracking** - broadcasters see who's tuned in
+- **Automatic heartbeat** - connections maintained automatically
+- **Cross-platform** terminal UI and Web GUI
+- **Real audio** - PortAudio capture + Opus codec encoding
 
 ## Prerequisites
 
@@ -62,11 +66,13 @@ meshradio
 ### 3. Broadcast
 - Press `b` to enter broadcast mode
 - Select your microphone
-- Your station is now live on your Yggdrasil IPv6
+- Share your IPv6:port with listeners (e.g., `201:abcd:1234::1:8799`)
+- See connected listeners in real-time
 
 ### 4. Listen
 - Press `l` to enter listen mode
-- Enter the broadcaster's IPv6 address
+- Enter the broadcaster's IPv6:port (get this from the broadcaster)
+- Your listener automatically subscribes and sends heartbeats
 - Enjoy the stream!
 
 ## Usage
@@ -91,13 +97,14 @@ See [DESIGN.md](DESIGN.md) for full technical specification.
 
 ## Development Status
 
-**Current**: MVP (v0.1-alpha)
-- ✅ Basic broadcasting
-- ✅ Basic listening
-- ✅ Terminal UI
-- ⏳ Scanning (planned)
-- ⏳ Station discovery (planned)
-- ⏳ DHT registry (planned)
+**Current**: v0.4-alpha (Subscription-based MVP)
+- ✅ Subscription-based streaming (unicast over Yggdrasil)
+- ✅ Listener tracking with heartbeats
+- ✅ Real audio (PortAudio + Opus)
+- ✅ Terminal UI and Web GUI
+- ⏳ Station discovery (manual OOB for MVP)
+- ⏳ DHT registry (future)
+- ⏳ Scanning (future)
 
 ## Contributing
 

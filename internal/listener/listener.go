@@ -13,6 +13,9 @@ import (
 
 // Listener receives and plays audio streams
 type Listener struct {
+	callsign    string
+	localIPv6   net.IP
+	localPort   int
 	targetIPv6  net.IP
 	targetPort  int
 	transport   *network.Transport
@@ -23,6 +26,10 @@ type Listener struct {
 	mu          sync.Mutex
 	stopChan    chan struct{}
 
+	// Subscription state
+	subscribed      bool
+	lastHeartbeat   time.Time
+
 	// Stats
 	packetsReceived uint64
 	lastSeqNum      uint8
@@ -31,9 +38,11 @@ type Listener struct {
 
 // Config holds listener configuration
 type Config struct {
+	Callsign    string
+	LocalIPv6   net.IP
+	LocalPort   int
 	TargetIPv6  net.IP
 	TargetPort  int
-	LocalPort   int
 	AudioConfig audio.StreamConfig
 }
 
@@ -48,6 +57,9 @@ func New(cfg Config) (*Listener, error) {
 	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
 
 	return &Listener{
+		callsign:   cfg.Callsign,
+		localIPv6:  cfg.LocalIPv6,
+		localPort:  cfg.LocalPort,
 		targetIPv6: cfg.TargetIPv6,
 		targetPort: cfg.TargetPort,
 		transport:  transport,
@@ -78,10 +90,18 @@ func (l *Listener) Start() error {
 		return fmt.Errorf("failed to start audio output: %w", err)
 	}
 
+	// Send SUBSCRIBE packet to broadcaster
+	if err := l.subscribe(); err != nil {
+		return fmt.Errorf("failed to subscribe: %w", err)
+	}
+
 	// Start receive loop
 	go l.receiveLoop()
 
-	fmt.Printf("Listening to %s:%d\n", l.targetIPv6.String(), l.targetPort)
+	// Start heartbeat loop
+	go l.heartbeatLoop()
+
+	fmt.Printf("Subscribed to %s:%d\n", l.targetIPv6.String(), l.targetPort)
 
 	return nil
 }
@@ -192,4 +212,75 @@ func (l *Listener) IsRunning() bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	return l.running
+}
+
+// subscribe sends a SUBSCRIBE packet to the broadcaster
+func (l *Listener) subscribe() error {
+	var ipv6Bytes [16]byte
+	copy(ipv6Bytes[:], l.localIPv6.To16())
+
+	var callsignBytes [16]byte
+	copy(callsignBytes[:], []byte(l.callsign))
+
+	subPayload := &protocol.SubscribePayload{
+		ListenerIPv6: ipv6Bytes,
+		ListenerPort: uint16(l.localPort),
+		Callsign:     callsignBytes,
+	}
+
+	packet := protocol.NewPacket(
+		protocol.PacketTypeSubscribe,
+		ipv6Bytes,
+		l.callsign,
+		protocol.MarshalSubscribe(subPayload),
+	)
+
+	err := l.transport.Send(packet, l.targetIPv6, l.targetPort)
+	if err != nil {
+		return fmt.Errorf("failed to send subscribe: %w", err)
+	}
+
+	l.subscribed = true
+	l.lastHeartbeat = time.Now()
+	fmt.Printf("Sent SUBSCRIBE to %s:%d\n", l.targetIPv6.String(), l.targetPort)
+
+	return nil
+}
+
+// heartbeatLoop sends periodic heartbeats to broadcaster
+func (l *Listener) heartbeatLoop() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if !l.subscribed {
+				continue
+			}
+
+			var ipv6Bytes [16]byte
+			copy(ipv6Bytes[:], l.localIPv6.To16())
+
+			hbPayload := &protocol.HeartbeatPayload{
+				ListenerIPv6: ipv6Bytes,
+				Timestamp:    uint64(time.Now().Unix()),
+			}
+
+			packet := protocol.NewPacket(
+				protocol.PacketTypeHeartbeat,
+				ipv6Bytes,
+				l.callsign,
+				protocol.MarshalHeartbeat(hbPayload),
+			)
+
+			err := l.transport.Send(packet, l.targetIPv6, l.targetPort)
+			if err == nil {
+				l.lastHeartbeat = time.Now()
+			}
+
+		case <-l.stopChan:
+			return
+		}
+	}
 }
