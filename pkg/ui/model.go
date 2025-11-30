@@ -197,7 +197,7 @@ func (m Model) startBroadcast() (Model, tea.Cmd) {
 	cfg := broadcaster.Config{
 		Callsign:    m.callsign,
 		IPv6:        m.localIPv6,
-		Port:        9001,
+		Port:        8799, // 799 ~ Ygg (avoid conflict with Yggdrasil port 9001)
 		AudioConfig: audio.DefaultConfig(),
 	}
 
@@ -216,7 +216,8 @@ func (m Model) startBroadcast() (Model, tea.Cmd) {
 
 	m.broadcaster = b
 	m.mode = ModeBroadcast
-	m.addLog(fmt.Sprintf("Broadcasting on %s:9001", m.localIPv6.String()))
+	m.addLog(fmt.Sprintf("Broadcasting on %s:8799", m.localIPv6.String()))
+	m.addLog("Share this address with listeners!")
 	m.addLog("Press 'q' or ESC to stop")
 
 	return m, nil
@@ -236,9 +237,11 @@ func (m Model) stopBroadcast() (Model, tea.Cmd) {
 // startListener starts listening
 func (m Model) startListener(targetIPv6 net.IP) (Model, tea.Cmd) {
 	cfg := listener.Config{
+		Callsign:    m.callsign,
+		LocalIPv6:   m.localIPv6,
+		LocalPort:   9799, // 799 ~ Ygg (listener port, pairs with broadcaster 8799)
 		TargetIPv6:  targetIPv6,
-		TargetPort:  9001,
-		LocalPort:   9002,
+		TargetPort:  8799, // 799 ~ Ygg (broadcaster port)
 		AudioConfig: audio.DefaultConfig(),
 	}
 
