@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/meshradio/meshradio/pkg/audio"
+	"github.com/meshradio/meshradio/pkg/multicast"
 	"github.com/meshradio/meshradio/pkg/network"
 	"github.com/meshradio/meshradio/pkg/protocol"
 )
@@ -25,6 +26,7 @@ type Broadcaster struct {
 	callsign   string
 	ipv6       net.IP
 	port       int
+	group      string  // Multicast group name (e.g., "emergency", "community")
 	transport  *network.Transport
 	audioIn    *audio.InputStream
 	codec      audio.Codec
@@ -34,16 +36,20 @@ type Broadcaster struct {
 	seqNum     uint8
 	stopChan   chan struct{}
 
-	// Subscription-based listener management
+	// Subscription manager (Layer 4: Multicast Overlay)
+	subManager *multicast.SubscriptionManager
+
+	// Legacy listener tracking (deprecated - use subManager instead)
 	listeners    map[string]*ListenerConn // key: "ipv6:port"
 	listenersMux sync.RWMutex
 }
 
 // Config holds broadcaster configuration
 type Config struct {
-	Callsign   string
-	IPv6       net.IP
-	Port       int
+	Callsign    string
+	IPv6        net.IP
+	Port        int
+	Group       string  // Multicast group (e.g., "emergency", "community")
 	AudioConfig audio.StreamConfig
 }
 
@@ -57,16 +63,24 @@ func New(cfg Config) (*Broadcaster, error) {
 	audioIn := audio.NewInputStream(cfg.AudioConfig)
 	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
 
+	// Default group if not specified
+	group := cfg.Group
+	if group == "" {
+		group = "default"
+	}
+
 	return &Broadcaster{
-		callsign:  cfg.Callsign,
-		ipv6:      cfg.IPv6,
-		port:      cfg.Port,
-		transport: transport,
-		audioIn:   audioIn,
-		codec:     codec,
-		config:    cfg.AudioConfig,
-		stopChan:  make(chan struct{}),
-		listeners: make(map[string]*ListenerConn),
+		callsign:   cfg.Callsign,
+		ipv6:       cfg.IPv6,
+		port:       cfg.Port,
+		group:      group,
+		transport:  transport,
+		audioIn:    audioIn,
+		codec:      codec,
+		config:     cfg.AudioConfig,
+		stopChan:   make(chan struct{}),
+		subManager: multicast.NewSubscriptionManager(),
+		listeners:  make(map[string]*ListenerConn),
 	}, nil
 }
 
@@ -89,6 +103,16 @@ func (b *Broadcaster) Start() error {
 	if err := b.audioIn.Start(); err != nil {
 		return fmt.Errorf("failed to start audio input: %w", err)
 	}
+
+	// Register this broadcaster with the subscription manager
+	broadcaster := &multicast.Broadcaster{
+		IPv6:     b.ipv6,
+		Port:     b.port,
+		Callsign: b.callsign,
+		LastSeen: time.Now(),
+	}
+	b.subManager.RegisterBroadcaster(b.group, broadcaster)
+	fmt.Printf("Registered broadcaster in group '%s'\n", b.group)
 
 	// Start broadcast loop
 	go b.broadcastLoop()
@@ -165,16 +189,18 @@ func (b *Broadcaster) broadcastLoop() {
 		packet.SequenceNum = b.seqNum
 		b.seqNum++
 
-		// Send to all subscribed listeners (unicast to each)
-		b.listenersMux.RLock()
-		listenerCount := len(b.listeners)
-		for _, listener := range b.listeners {
-			err = b.transport.Send(packet, listener.IPv6, int(listener.Port))
+		// Get subscribers for this broadcaster (using multicast overlay)
+		subscribers := b.subManager.GetSubscribersForSource(b.group, b.ipv6)
+
+		// Send to all subscribed listeners (unicast fan-out)
+		for _, sub := range subscribers {
+			err = b.transport.Send(packet, sub.IPv6, sub.Port)
 			if err != nil && b.seqNum%100 == 0 {
-				fmt.Printf("Send error to %s: %v\n", listener.Callsign, err)
+				fmt.Printf("Send error to %s: %v\n", sub.Callsign, err)
 			}
 		}
-		b.listenersMux.RUnlock()
+
+		listenerCount := len(subscribers)
 
 		// Log periodically
 		if b.seqNum%50 == 0 { // Log every 50 frames (~1 second)
@@ -217,19 +243,53 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	}
 
 	listenerIP := protocol.BytesToIPv6(sub.ListenerIPv6)
-	listenerKey := fmt.Sprintf("%s:%d", listenerIP.String(), sub.ListenerPort)
+	callsign := protocol.GetCallsignString(sub.Callsign)
 
+	// Extract group name (use broadcaster's group if not specified)
+	group := protocol.GetGroupString(sub.Group)
+	if group == "" {
+		group = b.group
+	}
+
+	// Extract SSM source (nil = regular multicast)
+	var ssmSource net.IP
+	if !protocol.IsZeroIPv6(sub.SSMSource) {
+		ssmSource = protocol.BytesToIPv6(sub.SSMSource)
+	}
+
+	// Create subscriber
+	subscriber := &multicast.Subscriber{
+		IPv6:      listenerIP,
+		Port:      int(sub.ListenerPort),
+		Callsign:  callsign,
+		LastSeen:  time.Now(),
+		SSMSource: ssmSource,
+	}
+
+	// Add to subscription manager
+	b.subManager.Subscribe(multicast.SubscribeRequest{
+		Group:      group,
+		Subscriber: subscriber,
+	})
+
+	multicastType := "Regular"
+	if subscriber.IsSSM() {
+		multicastType = fmt.Sprintf("SSM (source=%s)", ssmSource)
+	}
+	fmt.Printf("New subscriber: %s (%s) [%s] to group '%s'\n",
+		callsign, listenerIP, multicastType, group)
+
+	// Legacy: Also update old listeners map for backward compatibility
+	listenerKey := fmt.Sprintf("%s:%d", listenerIP.String(), sub.ListenerPort)
 	b.listenersMux.Lock()
 	b.listeners[listenerKey] = &ListenerConn{
 		IPv6:        listenerIP,
 		Port:        sub.ListenerPort,
-		Callsign:    protocol.GetCallsignString(sub.Callsign),
+		Callsign:    callsign,
 		ConnectedAt: time.Now(),
 		LastSeen:    time.Now(),
 	}
 	b.listenersMux.Unlock()
-
-	fmt.Printf("New listener: %s (%s)\n", protocol.GetCallsignString(sub.Callsign), listenerIP.String())
 }
 
 // handleHeartbeat processes a heartbeat from listener
@@ -241,6 +301,18 @@ func (b *Broadcaster) handleHeartbeat(packet *protocol.Packet) {
 
 	listenerIP := protocol.BytesToIPv6(hb.ListenerIPv6)
 
+	// Update heartbeat in subscription manager for all groups
+	// (listener might be subscribed to multiple groups)
+	for _, group := range b.subManager.ListGroups() {
+		subs := b.subManager.GetSubscribers(group)
+		for _, sub := range subs {
+			if sub.IPv6.Equal(listenerIP) {
+				b.subManager.Heartbeat(group, listenerIP, sub.Port)
+			}
+		}
+	}
+
+	// Legacy: Also update old listeners map for backward compatibility
 	b.listenersMux.Lock()
 	for key, listener := range b.listeners {
 		if listener.IPv6.Equal(listenerIP) {
@@ -260,10 +332,18 @@ func (b *Broadcaster) heartbeatMonitor() {
 	for {
 		select {
 		case <-ticker.C:
+			// Prune stale subscribers using multicast overlay
+			prunedSubs, prunedBroadcasters := b.subManager.PruneStale(15 * time.Second)
+			if prunedSubs > 0 || prunedBroadcasters > 0 {
+				fmt.Printf("Pruned %d stale subscriber(s), %d broadcaster(s)\n",
+					prunedSubs, prunedBroadcasters)
+			}
+
+			// Legacy: Also prune old listeners map
 			b.listenersMux.Lock()
 			for key, listener := range b.listeners {
 				if time.Since(listener.LastSeen) > 15*time.Second {
-					fmt.Printf("Listener timeout: %s\n", listener.Callsign)
+					fmt.Printf("Listener timeout (legacy): %s\n", listener.Callsign)
 					delete(b.listeners, key)
 				}
 			}

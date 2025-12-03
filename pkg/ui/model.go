@@ -198,6 +198,7 @@ func (m Model) startBroadcast() (Model, tea.Cmd) {
 		Callsign:    m.callsign,
 		IPv6:        m.localIPv6,
 		Port:        8799, // 799 ~ Ygg (avoid conflict with Yggdrasil port 9001)
+		Group:       "default", // TODO: Allow user to select group
 		AudioConfig: audio.DefaultConfig(),
 	}
 
@@ -242,6 +243,8 @@ func (m Model) startListener(targetIPv6 net.IP) (Model, tea.Cmd) {
 		LocalPort:   9799, // 799 ~ Ygg (listener port, pairs with broadcaster 8799)
 		TargetIPv6:  targetIPv6,
 		TargetPort:  8799, // 799 ~ Ygg (broadcaster port)
+		Group:       "default", // TODO: Allow user to select group
+		SSMSource:   nil, // Regular multicast (receive from all sources in group)
 		AudioConfig: audio.DefaultConfig(),
 	}
 

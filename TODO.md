@@ -186,71 +186,83 @@
 
 ## Layer 4: Multicast Overlay (SSM/Regular Multicast)
 
-**Status:** 🚧 To implement
+**Status:** ✅ Complete (Core + Integration)
 
 ### 4.1 Regular Multicast (Emergency Channels)
 
 **Goal:** Any-source multicast for emergency
 
-- [ ] Group management
-  - [ ] Track subscribers per group (e.g., "emergency")
-  - [ ] Multiple broadcasters can send to same group
-  - [ ] Listeners receive from ALL sources in group
+- [x] Group management
+  - [x] Track subscribers per group (e.g., "emergency")
+  - [x] Multiple broadcasters can send to same group
+  - [x] Listeners receive from ALL sources in group
 
-- [ ] JOIN handling
-  - [ ] Listener sends JOIN("emergency")
-  - [ ] Discover all broadcasters for this group (mDNS)
-  - [ ] Subscribe to each broadcaster (unicast)
+- [x] JOIN handling
+  - [x] Listener sends JOIN("emergency")
+  - [x] Discover all broadcasters for this group (mDNS)
+  - [x] Subscribe to each broadcaster (unicast)
 
-- [ ] Broadcaster registration
-  - [ ] Broadcaster advertises group membership
-  - [ ] Accepts JOIN requests
-  - [ ] Sends RTP to all subscribers (unicast fan-out)
+- [x] Broadcaster registration
+  - [x] Broadcaster advertises group membership
+  - [x] Accepts JOIN requests
+  - [x] Sends RTP to all subscribers (unicast fan-out)
 
-**Test:** 2 broadcasters, 3 listeners, same emergency group
+**Test:** ✅ multicast-test demonstrates 2 broadcasters, 4 listeners, same emergency group
 
 ### 4.2 SSM (Source-Specific Multicast) for Regular Channels
 
 **Goal:** Subscribe to specific broadcaster
 
-- [ ] SSM subscription
-  - [ ] Listener specifies (Source, Group)
-  - [ ] Example: (203:abcd::1, "talk")
-  - [ ] Only receives from that specific source
+- [x] SSM subscription
+  - [x] Listener specifies (Source, Group)
+  - [x] Example: (203:abcd::1, "talk")
+  - [x] Only receives from that specific source
 
-- [ ] SSM JOIN handling
-  - [ ] Send JOIN(source, group) → broadcaster
-  - [ ] Broadcaster adds to subscriber list
-  - [ ] Sends RTP unicast to subscriber
+- [x] SSM JOIN handling
+  - [x] Send JOIN(source, group) → broadcaster
+  - [x] Broadcaster adds to subscriber list
+  - [x] Sends RTP unicast to subscriber
 
-- [ ] SSM LEAVE handling
-  - [ ] Explicit LEAVE message
-  - [ ] Or timeout (30s no heartbeat)
-  - [ ] Broadcaster removes from list
+- [x] SSM LEAVE handling
+  - [x] Explicit LEAVE message (PacketTypeUnsubscribe)
+  - [x] Timeout (15s no heartbeat)
+  - [x] Broadcaster removes from list
 
-**Test:** Listener subscribes to specific broadcaster, not others
+**Test:** ✅ multicast-test demonstrates SSM (listener only receives from COMMUNITY-A, not B)
 
 ### 4.3 Subscription Protocol
 
 **Goal:** Manage subscriptions over unicast
 
-- [ ] Protocol packets (extend existing)
-  - [ ] SUBSCRIBE (source, group, listener_ipv6, port)
-  - [ ] UNSUBSCRIBE
-  - [ ] HEARTBEAT (keepalive)
-  - [ ] Already have these from v0.4!
+- [x] Protocol packets (extend existing)
+  - [x] SUBSCRIBE (source, group, listener_ipv6, port)
+  - [x] UNSUBSCRIBE (PacketTypeUnsubscribe 0x12)
+  - [x] HEARTBEAT (keepalive)
+  - [x] Extended SubscribePayload with Group and SSMSource fields
 
-- [ ] Subscriber tracking
-  - [ ] Map: group → []subscribers
-  - [ ] Update LastSeen on heartbeat
-  - [ ] Prune stale (15s timeout)
+- [x] Subscriber tracking
+  - [x] Map: group → []subscribers
+  - [x] Update LastSeen on heartbeat
+  - [x] Prune stale (15s timeout)
 
-- [ ] Fan-out logic
-  - [ ] For each RTP packet
-  - [ ] Send to all subscribers in group
-  - [ ] Unicast to each subscriber's IPv6:port
+- [x] Fan-out logic
+  - [x] For each RTP packet
+  - [x] Send to all subscribers in group
+  - [x] Unicast to each subscriber's IPv6:port
 
-**Test:** Subscribe, receive RTP, heartbeat, timeout works
+**Test:** ✅ Subscribe, receive RTP, heartbeat, timeout works
+
+### 4.4 Integration
+
+- [x] Integrated with Broadcaster (internal/broadcaster/)
+- [x] Integrated with Listener (internal/listener/)
+- [x] Updated TUI (pkg/ui/)
+- [x] Updated Web GUI (pkg/gui/)
+- [x] Backward compatible with v0.4
+
+**Documentation:**
+- See MULTICAST_SPEC.md for full specification
+- See LAYER4_PLAN.md for implementation details
 
 ---
 

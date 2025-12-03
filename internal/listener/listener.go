@@ -18,6 +18,8 @@ type Listener struct {
 	localPort   int
 	targetIPv6  net.IP
 	targetPort  int
+	group       string  // Multicast group (e.g., "emergency", "community")
+	ssmSource   net.IP  // SSM source (nil = regular multicast)
 	transport   *network.Transport
 	audioOut    *audio.OutputStream
 	codec       audio.Codec
@@ -43,6 +45,8 @@ type Config struct {
 	LocalPort   int
 	TargetIPv6  net.IP
 	TargetPort  int
+	Group       string  // Multicast group (e.g., "emergency", "community")
+	SSMSource   net.IP  // SSM source (nil = regular multicast, receives from all)
 	AudioConfig audio.StreamConfig
 }
 
@@ -56,12 +60,20 @@ func New(cfg Config) (*Listener, error) {
 	audioOut := audio.NewOutputStream(cfg.AudioConfig)
 	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
 
+	// Default group if not specified
+	group := cfg.Group
+	if group == "" {
+		group = "default"
+	}
+
 	return &Listener{
 		callsign:   cfg.Callsign,
 		localIPv6:  cfg.LocalIPv6,
 		localPort:  cfg.LocalPort,
 		targetIPv6: cfg.TargetIPv6,
 		targetPort: cfg.TargetPort,
+		group:      group,
+		ssmSource:  cfg.SSMSource,
 		transport:  transport,
 		audioOut:   audioOut,
 		codec:      codec,
@@ -222,10 +234,21 @@ func (l *Listener) subscribe() error {
 	var callsignBytes [16]byte
 	copy(callsignBytes[:], []byte(l.callsign))
 
+	// Convert group name to bytes
+	groupBytes := protocol.StringToGroup(l.group)
+
+	// Convert SSM source to bytes (all zeros if regular multicast)
+	var ssmSourceBytes [16]byte
+	if l.ssmSource != nil {
+		copy(ssmSourceBytes[:], l.ssmSource.To16())
+	}
+
 	subPayload := &protocol.SubscribePayload{
 		ListenerIPv6: ipv6Bytes,
 		ListenerPort: uint16(l.localPort),
 		Callsign:     callsignBytes,
+		Group:        groupBytes,
+		SSMSource:    ssmSourceBytes,
 	}
 
 	packet := protocol.NewPacket(
@@ -242,7 +265,13 @@ func (l *Listener) subscribe() error {
 
 	l.subscribed = true
 	l.lastHeartbeat = time.Now()
-	fmt.Printf("Sent SUBSCRIBE to %s:%d\n", l.targetIPv6.String(), l.targetPort)
+
+	multicastType := "Regular multicast"
+	if l.ssmSource != nil {
+		multicastType = fmt.Sprintf("SSM (source=%s)", l.ssmSource)
+	}
+	fmt.Printf("Sent SUBSCRIBE to %s:%d [%s] group='%s'\n",
+		l.targetIPv6.String(), l.targetPort, multicastType, l.group)
 
 	return nil
 }
