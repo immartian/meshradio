@@ -24,6 +24,7 @@ const (
 	// Subscription-based streaming (MVP)
 	PacketTypeSubscribe      uint8 = 0x10
 	PacketTypeHeartbeat      uint8 = 0x11
+	PacketTypeUnsubscribe    uint8 = 0x12
 )
 
 // Packet flags

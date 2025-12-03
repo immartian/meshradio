@@ -10,6 +10,8 @@ type SubscribePayload struct {
 	ListenerIPv6 [16]byte
 	ListenerPort uint16
 	Callsign     [16]byte
+	Group        [32]byte // Multicast group name (e.g., "emergency", "community")
+	SSMSource    [16]byte // SSM source IPv6 (all zeros = regular multicast)
 }
 
 // HeartbeatPayload represents a keepalive from listener
@@ -20,17 +22,20 @@ type HeartbeatPayload struct {
 
 // MarshalSubscribe encodes subscription payload to bytes
 func MarshalSubscribe(sp *SubscribePayload) []byte {
-	buf := make([]byte, 34) // 16 + 2 + 16
+	buf := make([]byte, 82) // 16 + 2 + 16 + 32 + 16
 
 	copy(buf[0:16], sp.ListenerIPv6[:])
 	binary.BigEndian.PutUint16(buf[16:18], sp.ListenerPort)
 	copy(buf[18:34], sp.Callsign[:])
+	copy(buf[34:66], sp.Group[:])
+	copy(buf[66:82], sp.SSMSource[:])
 
 	return buf
 }
 
 // UnmarshalSubscribe decodes subscription payload from bytes
 func UnmarshalSubscribe(data []byte) (*SubscribePayload, error) {
+	// Support both old (34 bytes) and new (82 bytes) formats
 	if len(data) < 34 {
 		return nil, ErrInvalidPayload
 	}
@@ -41,6 +46,12 @@ func UnmarshalSubscribe(data []byte) (*SubscribePayload, error) {
 
 	copy(sp.ListenerIPv6[:], data[0:16])
 	copy(sp.Callsign[:], data[18:34])
+
+	// If new format with Group and SSMSource
+	if len(data) >= 82 {
+		copy(sp.Group[:], data[34:66])
+		copy(sp.SSMSource[:], data[66:82])
+	}
 
 	return sp, nil
 }
@@ -95,4 +106,36 @@ func GetCallsignString(callsign [16]byte) string {
 		}
 	}
 	return string(callsign[:length])
+}
+
+// Helper to get group name as string
+func GetGroupString(group [32]byte) string {
+	length := 0
+	for i, b := range group {
+		if b == 0 {
+			length = i
+			break
+		}
+		if i == len(group)-1 {
+			length = len(group)
+		}
+	}
+	return string(group[:length])
+}
+
+// Helper to convert string to group bytes
+func StringToGroup(s string) [32]byte {
+	var result [32]byte
+	copy(result[:], []byte(s))
+	return result
+}
+
+// IsZeroIPv6 checks if an IPv6 address is all zeros
+func IsZeroIPv6(ip [16]byte) bool {
+	for _, b := range ip {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
 }
