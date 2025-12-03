@@ -90,6 +90,27 @@ Payload: Opus-encoded audio
 - Packets lost (detected via sequence gaps)
 - Packet loss rate (%)
 
+## Discovery via mDNS
+
+**Status:** ✅ Complete (Layer 3)
+
+Instead of manually entering IPv6 addresses, use mDNS for automatic discovery:
+
+### Advertise a Station
+
+```bash
+./mdns-test -mode advertise -callsign STATION1 -port 9999 -channel community
+```
+
+### Discover Stations
+
+```bash
+./mdns-test -mode browse
+# Shows discovered stations with IPv6:port
+```
+
+See `MDNS_SPEC.md` for full documentation.
+
 ## Next Steps
 
 - [ ] Add RTCP (RTP Control Protocol) for feedback
@@ -97,6 +118,7 @@ Payload: Opus-encoded audio
 - [ ] Test with real Opus encoding (not dummy)
 - [ ] Measure latency end-to-end
 - [ ] Test with multiple receivers (fan-out)
+- [x] mDNS/Avahi discovery ✅
 
 ## Code Structure
 

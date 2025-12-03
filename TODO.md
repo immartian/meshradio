@@ -26,7 +26,7 @@
 
 ## Layer 2: Streaming Layer (RTP)
 
-**Status:** 🚧 To implement
+**Status:** ✅ Complete
 
 ### 2.1 RTP Library Integration
 
@@ -101,50 +101,50 @@
 
 ## Layer 3: Discovery Layer (mDNS/Avahi)
 
-**Status:** 🚧 To implement
+**Status:** ✅ Complete
 
 ### 3.1 mDNS Library Integration
 
 **Goal:** Advertise and discover stations
 
-- [ ] Choose mDNS library
+- [x] Choose mDNS library
   - Option A: `github.com/grandcat/zeroconf` (cross-platform, pure Go)
   - Option B: `github.com/hashicorp/mdns` (pure Go, simpler)
   - Option C: `github.com/holoplot/go-avahi` (Linux only, native Avahi)
-  - **Decision:** Start with zeroconf (cross-platform)
+  - **Decision:** zeroconf (cross-platform, v1.0.0)
 
-- [ ] Service advertisement (broadcaster)
-  - [ ] Define service type: `_meshradio._udp.local.`
-  - [ ] Advertise when broadcast starts
-  - [ ] Withdraw when broadcast stops
-  - [ ] Set TXT records (see below)
+- [x] Service advertisement (broadcaster)
+  - [x] Define service type: `_meshradio._udp.local.`
+  - [x] Advertise when broadcast starts
+  - [x] Withdraw when broadcast stops
+  - [x] Set TXT records (see below)
 
-- [ ] Service discovery (listener)
-  - [ ] Browse for `_meshradio._udp` services
-  - [ ] Parse TXT records
-  - [ ] Track discovered stations
-  - [ ] Handle service removal
+- [x] Service discovery (listener)
+  - [x] Browse for `_meshradio._udp` services
+  - [x] Parse TXT records
+  - [x] Track discovered stations
+  - [x] Handle service removal
 
-**Test:** Advertise on machine A, discover on machine B (same LAN)
+**Test:** ✅ mdns-test program works for both advertise and browse modes
 
 ### 3.2 TXT Record Convention
 
 **Goal:** Define standard metadata format
 
-- [ ] Define required TXT fields
-  - [ ] `group` - Multicast group label (e.g., "emergency")
-  - [ ] `channel` - Channel type (emergency/community/talk)
-  - [ ] `callsign` - Station identifier
-  - [ ] `port` - RTP port (8790-8799)
+- [x] Define required TXT fields
+  - [x] `group` - Multicast group label (e.g., "emergency")
+  - [x] `channel` - Channel type (emergency/community/talk)
+  - [x] `callsign` - Station identifier
+  - [x] `port` - RTP port (8790-8799)
 
-- [ ] Define optional TXT fields
-  - [ ] `priority` - normal/high/emergency/critical
-  - [ ] `codec` - opus/flac
-  - [ ] `bitrate` - kbps
-  - [ ] `source` - Broadcaster IPv6 (for SSM)
-  - [ ] `description` - Human-readable
+- [x] Define optional TXT fields
+  - [x] `priority` - normal/high/emergency/critical
+  - [x] `codec` - opus/flac
+  - [x] `bitrate` - kbps
+  - [ ] `source` - Broadcaster IPv6 (for SSM) - Defer to Layer 4
+  - [ ] `description` - Human-readable - Future enhancement
 
-- [ ] Example TXT record:
+- [x] Example TXT record:
   ```
   _meshradio._udp.local.
     group=emergency
@@ -156,9 +156,9 @@
     bitrate=64
   ```
 
-- [ ] Document in specification
+- [x] Document in specification (see MDNS_SPEC.md)
 
-**Test:** Advertise with TXT, query and parse correctly
+**Test:** ✅ TXT records created and parsed correctly
 
 ### 3.3 Emergency Fallback (No mDNS)
 
