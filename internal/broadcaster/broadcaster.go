@@ -414,6 +414,15 @@ func (b *Broadcaster) heartbeatMonitor() {
 	for {
 		select {
 		case <-ticker.C:
+			// Update this broadcaster's LastSeen to prevent self-pruning
+			broadcaster := &multicast.Broadcaster{
+				IPv6:     b.ipv6,
+				Port:     b.port,
+				Callsign: b.callsign,
+				LastSeen: time.Now(),
+			}
+			b.subManager.RegisterBroadcaster(b.group, broadcaster)
+
 			// Prune stale subscribers using multicast overlay
 			prunedSubs, prunedBroadcasters := b.subManager.PruneStale(15 * time.Second)
 			if prunedSubs > 0 || prunedBroadcasters > 0 {
