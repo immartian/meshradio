@@ -1,6 +1,7 @@
 package multicast
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -44,7 +45,7 @@ type UnsubscribeRequest struct {
 
 // GetKey returns a unique key for a subscriber (IPv6:port)
 func (s *Subscriber) GetKey() string {
-	return net.JoinHostPort(s.IPv6.String(), string(rune(s.Port)))
+	return net.JoinHostPort(s.IPv6.String(), fmt.Sprintf("%d", s.Port))
 }
 
 // GetKey returns a unique key for a broadcaster (IPv6)
