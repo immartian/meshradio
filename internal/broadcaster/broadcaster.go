@@ -253,6 +253,7 @@ func (b *Broadcaster) broadcastLoop() {
 
 // subscriptionLoop handles incoming SUBSCRIBE and HEARTBEAT packets
 func (b *Broadcaster) subscriptionLoop() {
+	fmt.Println("Subscription loop started")
 	for {
 		select {
 		case <-b.stopChan:
@@ -265,6 +266,8 @@ func (b *Broadcaster) subscriptionLoop() {
 		if err != nil {
 			continue
 		}
+
+		fmt.Printf("Received packet type=%d from %s\n", packet.Type, protocol.BytesToIPv6(packet.SourceIPv6))
 
 		switch packet.Type {
 		case protocol.PacketTypeSubscribe:
