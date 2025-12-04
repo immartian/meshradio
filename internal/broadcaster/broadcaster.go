@@ -248,15 +248,18 @@ func (b *Broadcaster) broadcastLoop() {
 		// Get subscribers for this broadcaster (using multicast overlay)
 		subscribers := b.subManager.GetSubscribersForSource(b.group, b.ipv6)
 
-		if b.seqNum%50 == 0 && len(subscribers) == 0 {
-			// Debug: why no subscribers?
+		// Debug: Log subscriber count every frame for first 10 frames after subscription
+		if b.seqNum < 100 || (b.seqNum%50 == 0 && len(subscribers) == 0) {
 			allSubs := b.subManager.GetSubscribers(b.group)
-			fmt.Printf("DEBUG: GetSubscribersForSource returned 0, but GetSubscribers returned %d\n", len(allSubs))
-			if len(allSubs) > 0 {
+			if len(subscribers) == 0 && len(allSubs) > 0 {
+				fmt.Printf("⚠️  DEBUG seq=%d: GetSubscribersForSource returned 0, but GetSubscribers=%d\n",
+					b.seqNum, len(allSubs))
 				for _, sub := range allSubs {
-					fmt.Printf("  - Subscriber: %s, SSMSource=%v, MatchesSource(%s)=%v\n",
-						sub.IPv6, sub.SSMSource, b.ipv6, sub.MatchesSource(b.ipv6))
+					fmt.Printf("  - Subscriber: %s:%d, SSMSource=%v, MatchesSource(%s)=%v\n",
+						sub.IPv6, sub.Port, sub.SSMSource, b.ipv6, sub.MatchesSource(b.ipv6))
 				}
+			} else if len(subscribers) > 0 {
+				fmt.Printf("✅ DEBUG seq=%d: Sending to %d subscriber(s)\n", b.seqNum, len(subscribers))
 			}
 		}
 
