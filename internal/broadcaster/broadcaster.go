@@ -257,8 +257,8 @@ func (b *Broadcaster) broadcastLoop() {
 
 		// Log periodically
 		if b.seqNum%50 == 0 { // Log every 50 frames (~1 second)
-			fmt.Printf("Broadcasting: seq=%d, size=%d bytes to %d listeners\n",
-				packet.SequenceNum, len(encoded), listenerCount)
+			fmt.Printf("Broadcasting: seq=%d, size=%d bytes to %d listeners (group='%s')\n",
+				packet.SequenceNum, len(encoded), listenerCount, b.group)
 		}
 	}
 }
