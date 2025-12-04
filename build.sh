@@ -65,6 +65,7 @@ PROGRAMS=(
     "cmd/mdns-test:mdns-test:mDNS discovery test"
     "cmd/multicast-test:multicast-test:Multicast overlay test"
     "cmd/emergency-test:emergency-test:Emergency priority test"
+    "cmd/music-broadcast:music-broadcast:Music file broadcaster"
 )
 
 SUCCESS=0
@@ -98,6 +99,7 @@ if [ $FAILED -eq 0 ]; then
     echo "  ./mdns-test        - Test mDNS discovery"
     echo "  ./multicast-test   - Test multicast overlay"
     echo "  ./emergency-test   - Test emergency features"
+    echo "  ./music-broadcast  - Broadcast music files (MP3)"
     echo
     echo "Quick start:"
     echo "  ./meshradio --help              # Show help"
