@@ -24,19 +24,19 @@ type ListenerConn struct {
 
 // Broadcaster streams audio to subscribed listeners
 type Broadcaster struct {
-	callsign   string
-	ipv6       net.IP
-	port       int
-	group      string  // Multicast group name (e.g., "emergency", "community")
-	priority   uint8   // Broadcast priority (0-3)
-	transport  *network.Transport
-	audioIn    *audio.InputStream
-	codec      audio.Codec
-	config     audio.StreamConfig
-	running    bool
-	mu         sync.Mutex
-	seqNum     uint8
-	stopChan   chan struct{}
+	callsign    string
+	ipv6        net.IP
+	port        int
+	group       string  // Multicast group name (e.g., "emergency", "community")
+	priority    uint8   // Broadcast priority (0-3)
+	transport   *network.Transport
+	audioSource audio.AudioSource // Can be microphone, MP3 file, etc.
+	codec       audio.Codec
+	config      audio.StreamConfig
+	running     bool
+	mu          sync.Mutex
+	seqNum      uint8
+	stopChan    chan struct{}
 
 	// Subscription manager (Layer 4: Multicast Overlay)
 	subManager *multicast.SubscriptionManager
@@ -54,8 +54,9 @@ type Config struct {
 	Callsign    string
 	IPv6        net.IP
 	Port        int
-	Group       string  // Multicast group (e.g., "emergency", "community")
+	Group       string              // Multicast group (e.g., "emergency", "community")
 	AudioConfig audio.StreamConfig
+	AudioSource audio.AudioSource   // Optional: custom audio source (microphone, MP3, etc.). If nil, uses microphone.
 }
 
 // New creates a new broadcaster
@@ -65,7 +66,14 @@ func New(cfg Config) (*Broadcaster, error) {
 		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}
 
-	audioIn := audio.NewInputStream(cfg.AudioConfig)
+	// Use provided audio source, or default to microphone
+	var audioSource audio.AudioSource
+	if cfg.AudioSource != nil {
+		audioSource = cfg.AudioSource
+	} else {
+		audioSource = audio.NewMicrophoneSource(cfg.AudioConfig)
+	}
+
 	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
 
 	// Default group if not specified
@@ -88,7 +96,7 @@ func New(cfg Config) (*Broadcaster, error) {
 		group:           group,
 		priority:        priority,
 		transport:       transport,
-		audioIn:         audioIn,
+		audioSource:     audioSource,
 		codec:           codec,
 		config:          cfg.AudioConfig,
 		stopChan:        make(chan struct{}),
@@ -113,9 +121,9 @@ func (b *Broadcaster) Start() error {
 		return fmt.Errorf("failed to start transport: %w", err)
 	}
 
-	// Start audio input
-	if err := b.audioIn.Start(); err != nil {
-		return fmt.Errorf("failed to start audio input: %w", err)
+	// Start audio source
+	if err := b.audioSource.Start(); err != nil {
+		return fmt.Errorf("failed to start audio source: %w", err)
 	}
 
 	// Register this broadcaster with the subscription manager
@@ -158,7 +166,7 @@ func (b *Broadcaster) Stop() error {
 	b.running = false
 	close(b.stopChan)
 
-	b.audioIn.Stop()
+	b.audioSource.Stop()
 	b.transport.Stop()
 
 	return nil
@@ -176,10 +184,17 @@ func (b *Broadcaster) broadcastLoop() {
 		default:
 		}
 
-		// Read audio frame
-		pcm, err := b.audioIn.Read()
+		// Read audio frame (as int16 samples)
+		samples, err := b.audioSource.Read()
 		if err != nil {
 			continue
+		}
+
+		// Convert int16 samples to bytes for codec
+		pcm := make([]byte, len(samples)*2)
+		for i, sample := range samples {
+			pcm[i*2] = byte(sample)
+			pcm[i*2+1] = byte(sample >> 8)
 		}
 
 		// Encode audio

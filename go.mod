@@ -34,6 +34,10 @@ require (
 	github.com/pion/rtp v1.8.25 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
+	github.com/youpy/go-riff v0.1.0 // indirect
+	github.com/youpy/go-wav v0.3.2 // indirect
+	github.com/zaf/g711 v0.0.0-20190814101024-76a4a538f52b // indirect
+	github.com/zaf/resample v1.5.0 // indirect
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550 // indirect
 	golang.org/x/net v0.0.0-20200114155413-6afb5195e5aa // indirect
 	golang.org/x/sys v0.36.0 // indirect

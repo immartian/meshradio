@@ -4,9 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/hajimehoshi/go-mp3"
@@ -78,7 +81,7 @@ func main() {
 	fmt.Printf("✅ Found %d MP3 file(s)\n", len(playlist.files))
 	fmt.Println()
 
-	// Show playlist
+	// Show playlist preview
 	fmt.Println("📻 Playlist:")
 	for i, file := range playlist.files {
 		name := filepath.Base(file)
@@ -96,35 +99,11 @@ func main() {
 	if err != nil {
 		fmt.Printf("Warning: Could not get Yggdrasil IPv6: %v\n", err)
 		fmt.Println("Using localhost for testing")
-		ipv6 = []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}
+		ipv6 = net.IPv6loopback
 	}
 
-	fmt.Printf("📡 Broadcasting on: %s:%d\n", formatIPv6(ipv6), *port)
+	fmt.Printf("📡 Broadcasting on: %s:%d\n", ipv6.String(), *port)
 	fmt.Println()
-
-	// Create broadcaster
-	cfg := broadcaster.Config{
-		Callsign: *callsign,
-		IPv6:     ipv6,
-		Port:     *port,
-		Group:    *group,
-		AudioConfig: audio.StreamConfig{
-			SampleRate: 48000,
-			Channels:   2, // Stereo for music
-			FrameSize:  960,
-			Bitrate:    128000, // Higher bitrate for music quality
-		},
-	}
-
-	b, err := broadcaster.New(cfg)
-	if err != nil {
-		fmt.Printf("Error creating broadcaster: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Note: We won't actually start the broadcaster yet
-	// because we need to replace its audio input with MP3 decoder
-	// For now, this is a placeholder that shows the concept
 
 	fmt.Println("🎵 Starting music broadcast...")
 	fmt.Println()
@@ -132,62 +111,100 @@ func main() {
 	fmt.Println("  Ctrl+C  - Stop broadcasting")
 	fmt.Println()
 
-	// TODO: Implement actual MP3 playback integration
-	// This requires refactoring broadcaster to accept custom audio source
-	// For now, just show what would be played
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-	fmt.Println("⚠️  NOTE: MP3 playback not yet integrated")
-	fmt.Println("    This is a demonstration of the music discovery feature.")
-	fmt.Println("    Full MP3 playback integration requires:")
-	fmt.Println("    1. MP3 decoder (go-mp3)")
-	fmt.Println("    2. Sample rate conversion (44.1kHz → 48kHz)")
-	fmt.Println("    3. Audio pipeline refactoring")
-	fmt.Println()
-	fmt.Println("    For now, use the main 'meshradio' program to broadcast")
-	fmt.Println("    live audio from your microphone while playing music locally.")
-	fmt.Println()
+	// Play through playlist
+	for {
+		for i, file := range playlist.files {
+			// Check for interrupt
+			select {
+			case <-sigChan:
+				fmt.Println("\n\nStopping music broadcast...")
+				return
+			default:
+			}
 
-	// Simulate playback
-	for i, file := range playlist.files {
-		fmt.Printf("▶️  Now playing [%d/%d]: %s\n", i+1, len(playlist.files), filepath.Base(file))
+			fmt.Printf("▶️  Now playing [%d/%d]: %s\n", i+1, len(playlist.files), filepath.Base(file))
 
-		// Open MP3 file to get duration
-		f, err := os.Open(file)
-		if err != nil {
-			fmt.Printf("   Error opening file: %v\n", err)
-			continue
+			// Get file info for duration display
+			duration, sampleRate := getMP3Info(file)
+			fmt.Printf("   Duration: %s | Sample Rate: %d Hz\n", duration.Round(time.Second), sampleRate)
+
+			// Broadcast this file
+			if err := broadcastFile(file, ipv6, *port, *group, *callsign, sigChan); err != nil {
+				if err == io.EOF {
+					// File finished normally
+					fmt.Printf("   ✅ Completed\n\n")
+				} else {
+					fmt.Printf("   ❌ Error: %v\n\n", err)
+				}
+			}
 		}
 
-		decoder, err := mp3.NewDecoder(f)
-		if err != nil {
-			fmt.Printf("   Error decoding MP3: %v\n", err)
-			f.Close()
-			continue
+		// Check if we should loop
+		if !*loop {
+			break
 		}
 
-		// Calculate approximate duration
-		sampleRate := decoder.SampleRate()
-		length := decoder.Length()
-		duration := time.Duration(length) * time.Second / time.Duration(sampleRate) / 4 // 4 = 2 channels * 2 bytes per sample
-
-		fmt.Printf("   Duration: %s | Sample Rate: %d Hz\n", duration.Round(time.Second), sampleRate)
-
-		f.Close()
-
-		// Sleep to simulate playback
-		time.Sleep(3 * time.Second)
-
-		// Check for interrupt
-		select {
-		case <-make(chan struct{}):
-		default:
-		}
+		fmt.Println("🔄 Looping playlist...\n")
 	}
 
-	_ = b // Silence unused variable warning
-
-	fmt.Println()
 	fmt.Println("✅ Playlist complete!")
+}
+
+func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign string, sigChan chan os.Signal) error {
+	// Create audio config for music (stereo, higher bitrate)
+	audioConfig := audio.StreamConfig{
+		SampleRate: 48000,
+		Channels:   2, // Stereo for music
+		FrameSize:  960,
+		Bitrate:    128000, // Higher bitrate for music quality
+	}
+
+	// Create MP3 source
+	mp3Source, err := audio.NewMP3Source(filepath, audioConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create MP3 source: %w", err)
+	}
+
+	// Create broadcaster with MP3 source
+	cfg := broadcaster.Config{
+		Callsign:    callsign,
+		IPv6:        ipv6,
+		Port:        port,
+		Group:       group,
+		AudioConfig: audioConfig,
+		AudioSource: mp3Source, // Use MP3 as audio source!
+	}
+
+	b, err := broadcaster.New(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create broadcaster: %w", err)
+	}
+
+	// Start broadcasting
+	if err := b.Start(); err != nil {
+		return fmt.Errorf("failed to start broadcaster: %w", err)
+	}
+
+	// Wait for file to finish or interrupt
+	// The broadcaster will automatically stop when MP3 source returns EOF
+	// We'll check periodically for signals
+	for {
+		select {
+		case <-sigChan:
+			b.Stop()
+			return fmt.Errorf("interrupted")
+		case <-time.After(1 * time.Second):
+			// Check if source is still running
+			if !mp3Source.IsRunning() {
+				b.Stop()
+				return io.EOF
+			}
+		}
+	}
 }
 
 func scanMusicDir(dir string) (*Playlist, error) {
@@ -218,57 +235,21 @@ func scanMusicDir(dir string) (*Playlist, error) {
 	}, nil
 }
 
-func formatIPv6(ipv6 []byte) string {
-	if len(ipv6) != 16 {
-		return "invalid"
-	}
-	return fmt.Sprintf("%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-		ipv6[0], ipv6[1], ipv6[2], ipv6[3], ipv6[4], ipv6[5], ipv6[6], ipv6[7],
-		ipv6[8], ipv6[9], ipv6[10], ipv6[11], ipv6[12], ipv6[13], ipv6[14], ipv6[15])
-}
-
-// playMP3 demonstrates how MP3 playback would work
-// This is a simplified example - full integration requires more work
-func playMP3(filepath string, output chan []int16) error {
+func getMP3Info(filepath string) (time.Duration, int) {
 	f, err := os.Open(filepath)
 	if err != nil {
-		return err
+		return 0, 0
 	}
 	defer f.Close()
 
 	decoder, err := mp3.NewDecoder(f)
 	if err != nil {
-		return err
+		return 0, 0
 	}
 
-	// Read samples
-	buf := make([]byte, 4096)
-	for {
-		n, err := decoder.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
+	sampleRate := decoder.SampleRate()
+	length := decoder.Length()
+	duration := time.Duration(length) * time.Second / time.Duration(sampleRate) / 4 // 4 = 2 channels * 2 bytes per sample
 
-		// Convert bytes to int16 samples
-		samples := make([]int16, n/2)
-		for i := 0; i < n/2; i++ {
-			samples[i] = int16(buf[i*2]) | int16(buf[i*2+1])<<8
-		}
-
-		// Send to output channel
-		// (In real implementation, this would go through resampling and encoding)
-		_ = samples
-
-		// Check for interrupt
-		select {
-		case <-make(chan struct{}):
-			return nil
-		default:
-		}
-	}
-
-	return nil
+	return duration, sampleRate
 }
