@@ -186,6 +186,11 @@ func (b *Broadcaster) broadcastLoop() {
 		default:
 		}
 
+		// Debug: confirm loop is running
+		if b.seqNum%100 == 0 {
+			fmt.Printf("DEBUG: Broadcast loop iteration, seqNum=%d\n", b.seqNum)
+		}
+
 		// Read audio frame (as int16 samples)
 		samples, err := b.audioSource.Read()
 		if err != nil {
