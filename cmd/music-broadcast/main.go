@@ -160,13 +160,8 @@ func main() {
 }
 
 func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign string, sigChan chan os.Signal) error {
-	// Create audio config for music (reduced quality for network transmission)
-	audioConfig := audio.StreamConfig{
-		SampleRate: 16000,  // Reduced for smaller packets (was 48000)
-		Channels:   1,      // Mono to reduce packet size (was 2)
-		FrameSize:  320,    // 20ms at 16kHz (was 960)
-		Bitrate:    32000,  // Lower bitrate (was 128000)
-	}
+	// Create audio config for music - use high quality settings
+	audioConfig := audio.DefaultConfig()
 
 	// Create MP3 source
 	mp3Source, err := audio.NewMP3Source(filepath, audioConfig)
