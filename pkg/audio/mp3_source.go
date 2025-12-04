@@ -11,16 +11,17 @@ import (
 
 // MP3Source reads audio from MP3 files
 type MP3Source struct {
-	config       StreamConfig
-	file         *os.File
-	decoder      *mp3.Decoder
-	resampler    *SimpleResampler
-	running      bool
-	mu           sync.Mutex
-	buffer       []int16
-	sampleRate   int
-	channels     int
-	needResample bool
+	config           StreamConfig
+	file             *os.File
+	decoder          *mp3.Decoder
+	resampler        *SimpleResampler
+	running          bool
+	mu               sync.Mutex
+	buffer           []int16
+	sampleRate       int
+	channels         int
+	needResample     bool
+	consecutiveSilent int // Count consecutive silent frames to detect end
 }
 
 // NewMP3Source creates a new MP3 audio source
@@ -53,26 +54,9 @@ func NewMP3Source(filepath string, config StreamConfig) (*MP3Source, error) {
 	fmt.Printf("📁 MP3 info: sampleRate=%d Hz, length=%d samples, duration=%.1f sec\n",
 		srcSampleRate, length, duration)
 
-	// Test read to verify decoder can read actual audio data
-	testBuf := make([]byte, 1024)
-	testN, testErr := decoder.Read(testBuf)
-	if testErr != nil && testErr != io.EOF {
-		fmt.Printf("⚠️  Warning: Test read failed: %v\n", testErr)
-	} else {
-		// Check if test data contains non-zero bytes
-		nonZeroBytes := 0
-		for i := 0; i < testN && i < 100; i++ {
-			if testBuf[i] != 0 {
-				nonZeroBytes++
-			}
-		}
-		fmt.Printf("🔍 Test read: %d bytes, nonZero=%d/100, first 16 bytes: %v\n",
-			testN, nonZeroBytes, testBuf[:min(16, testN)])
-
-		if nonZeroBytes == 0 && testN > 0 {
-			fmt.Printf("⚠️  WARNING: MP3 decoder returned %d bytes but they are all ZERO! File may be silent or decoder issue.\n", testN)
-		}
-	}
+	// Note: We can't do a test read here because go-mp3 decoder doesn't support seeking.
+	// Any bytes we read now would be lost from the beginning of the song.
+	// We'll rely on the Read() method's detailed logging to diagnose issues.
 
 	// Check if we need resampling
 	needResample := srcSampleRate != config.SampleRate
@@ -209,20 +193,39 @@ func (m *MP3Source) Read() ([]int16, error) {
 	copy(frame, m.buffer[:samplesNeeded])
 	m.buffer = m.buffer[samplesNeeded:]
 
-	// Debug: Check final frame values (only first few times)
-	if readCount > 0 {
-		nonZero := 0
-		maxAbs := int16(0)
-		for _, s := range frame[:min(100, len(frame))] {
-			if s != 0 {
-				nonZero++
-			}
-			if abs(s) > maxAbs {
-				maxAbs = abs(s)
-			}
+	// Debug: Check final frame values and detect end-of-stream silence
+	nonZero := 0
+	maxAbs := int16(0)
+	for _, s := range frame {
+		if s != 0 {
+			nonZero++
 		}
-		fmt.Printf("🎵 MP3 frame output: %d samples, nonZero=%d/100, maxAbs=%d\n",
-			len(frame), nonZero, maxAbs)
+		if abs(s) > maxAbs {
+			maxAbs = abs(s)
+		}
+	}
+
+	// Detect consecutive silent frames (likely end of file)
+	// go-mp3 sometimes returns zeros after EOF instead of EOF error
+	if nonZero == 0 && maxAbs == 0 {
+		m.consecutiveSilent++
+		// If we've had 50+ consecutive silent frames (~1 second), assume EOF
+		if m.consecutiveSilent >= 50 {
+			if m.consecutiveSilent == 50 {
+				fmt.Printf("⚠️  Detected %d consecutive silent frames, ending stream (probable EOF)\n", m.consecutiveSilent)
+			}
+			m.running = false
+			return nil, io.EOF
+		}
+	} else {
+		// Reset counter if we get real audio
+		m.consecutiveSilent = 0
+	}
+
+	// Debug: Log frame output periodically
+	if readCount > 0 && m.consecutiveSilent < 5 {
+		fmt.Printf("🎵 MP3 frame output: %d samples, nonZero=%d/%d, maxAbs=%d, silence=%d\n",
+			len(frame), nonZero, len(frame), maxAbs, m.consecutiveSilent)
 	}
 
 	// Convert stereo to mono if needed
