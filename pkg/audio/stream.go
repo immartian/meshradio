@@ -112,13 +112,15 @@ func (in *InputStream) captureLoop() {
 
 // OutputStream plays audio to speaker
 type OutputStream struct {
-	config   StreamConfig
-	running  bool
-	mu       sync.Mutex
-	frames   chan []byte
-	stopChan chan struct{}
-	ctx      *malgo.AllocatedContext
-	device   *malgo.Device
+	config         StreamConfig
+	running        bool
+	mu             sync.Mutex
+	frames         chan []byte
+	stopChan       chan struct{}
+	ctx            *malgo.AllocatedContext
+	device         *malgo.Device
+	callbackCount  uint64 // Track callback invocations
+	framesConsumed uint64 // Track frames consumed from buffer
 }
 
 // NewOutputStream creates a new audio output stream
@@ -157,11 +159,14 @@ func (out *OutputStream) Start() error {
 
 	// Data callback - called when device needs audio data
 	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
+		out.callbackCount++
+
 		// Calculate expected bytes (framecount is frames, not samples)
 		expectedBytes := int(framecount) * out.config.Channels * 2 // 2 bytes per sample (int16)
 
 		select {
 		case frame := <-out.frames:
+			out.framesConsumed++
 			// Ensure we copy the right amount of data
 			if len(frame) >= expectedBytes {
 				copy(pOutputSample, frame[:expectedBytes])
@@ -172,10 +177,22 @@ func (out *OutputStream) Start() error {
 					pOutputSample[i] = 0
 				}
 			}
+
+			// Log every 50 callbacks (~1 second)
+			if out.callbackCount%50 == 0 {
+				fmt.Printf("🔊 Playback: callback=%d, consumed=%d, buffer=%d/%d, framecount=%d\n",
+					out.callbackCount, out.framesConsumed, len(out.frames), cap(out.frames), framecount)
+			}
 		default:
 			// No frame available, output silence
 			for i := range pOutputSample {
 				pOutputSample[i] = 0
+			}
+
+			// Log buffer underrun periodically
+			if out.callbackCount%50 == 0 {
+				fmt.Printf("⚠️  Playback underrun: callback=%d, buffer empty (expected framecount=%d)\n",
+					out.callbackCount, framecount)
 			}
 		}
 	}

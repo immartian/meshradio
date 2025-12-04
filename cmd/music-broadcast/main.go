@@ -139,6 +139,11 @@ func main() {
 					fmt.Printf("   ✅ Completed\n\n")
 				} else {
 					fmt.Printf("   ❌ Error: %v\n\n", err)
+					// If interrupted, exit main loop
+					if err.Error() == "interrupted" {
+						fmt.Println("\n✅ Stopped by user")
+						return
+					}
 				}
 			}
 		}
