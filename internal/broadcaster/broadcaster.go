@@ -280,11 +280,13 @@ func (b *Broadcaster) subscriptionLoop() {
 
 // handleSubscribe processes a subscription request
 func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
+	fmt.Println("Processing SUBSCRIBE packet...")
 	sub, err := protocol.UnmarshalSubscribe(packet.Payload)
 	if err != nil {
 		fmt.Printf("Invalid subscribe packet: %v\n", err)
 		return
 	}
+	fmt.Printf("Unmarshalled subscribe: listener=%s port=%d\n", protocol.BytesToIPv6(sub.ListenerIPv6), sub.ListenerPort)
 
 	listenerIP := protocol.BytesToIPv6(sub.ListenerIPv6)
 	callsign := protocol.GetCallsignString(sub.Callsign)
@@ -294,6 +296,7 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	if group == "" {
 		group = b.group
 	}
+	fmt.Printf("Requested group='%s', broadcaster group='%s'\n", group, b.group)
 
 	// Extract SSM source (nil = regular multicast)
 	var ssmSource net.IP
@@ -311,10 +314,12 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	}
 
 	// Add to subscription manager
+	fmt.Printf("Adding subscriber to group '%s'...\n", group)
 	b.subManager.Subscribe(multicast.SubscribeRequest{
 		Group:      group,
 		Subscriber: subscriber,
 	})
+	fmt.Printf("Subscriber added. Total subscribers in group '%s': %d\n", group, len(b.subManager.GetSubscribers(group)))
 
 	multicastType := "Regular"
 	if subscriber.IsSSM() {
