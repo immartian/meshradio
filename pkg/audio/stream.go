@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/gen2brain/malgo"
 )
 
 // StreamConfig holds audio stream configuration
@@ -115,6 +117,8 @@ type OutputStream struct {
 	mu       sync.Mutex
 	frames   chan []byte
 	stopChan chan struct{}
+	ctx      *malgo.AllocatedContext
+	device   *malgo.Device
 }
 
 // NewOutputStream creates a new audio output stream
@@ -129,17 +133,59 @@ func NewOutputStream(config StreamConfig) *OutputStream {
 // Start begins audio playback
 func (out *OutputStream) Start() error {
 	out.mu.Lock()
+	defer out.mu.Unlock()
+
 	if out.running {
-		out.mu.Unlock()
 		return fmt.Errorf("stream already running")
 	}
+
+	// Initialize malgo context
+	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
+	if err != nil {
+		return fmt.Errorf("failed to initialize audio context: %w", err)
+	}
+	out.ctx = ctx
+
+	// Configure playback device
+	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
+	deviceConfig.Playback.Format = malgo.FormatS16
+	deviceConfig.Playback.Channels = uint32(out.config.Channels)
+	deviceConfig.SampleRate = uint32(out.config.SampleRate)
+	deviceConfig.Alsa.NoMMap = 1
+
+	// Data callback - called when device needs audio data
+	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
+		select {
+		case frame := <-out.frames:
+			// Copy frame data to output buffer
+			copy(pOutputSample, frame)
+		default:
+			// No frame available, output silence
+			for i := range pOutputSample {
+				pOutputSample[i] = 0
+			}
+		}
+	}
+
+	// Initialize device
+	device, err := malgo.InitDevice(ctx.Context, deviceConfig, malgo.DeviceCallbacks{
+		Data: onRecvFrames,
+	})
+	if err != nil {
+		ctx.Uninit()
+		return fmt.Errorf("failed to initialize playback device: %w", err)
+	}
+	out.device = device
+
+	// Start the device
+	if err := device.Start(); err != nil {
+		device.Uninit()
+		ctx.Uninit()
+		return fmt.Errorf("failed to start playback device: %w", err)
+	}
+
 	out.running = true
-	out.mu.Unlock()
-
-	// For MVP, we'll simulate playback
-	// In production, this would use PortAudio
-	go out.playbackLoop()
-
+	fmt.Println("🔊 Audio playback started")
 	return nil
 }
 
@@ -152,8 +198,20 @@ func (out *OutputStream) Stop() {
 		return
 	}
 
+	// Stop and clean up audio device
+	if out.device != nil {
+		out.device.Uninit()
+		out.device = nil
+	}
+
+	if out.ctx != nil {
+		out.ctx.Uninit()
+		out.ctx = nil
+	}
+
 	close(out.stopChan)
 	out.running = false
+	fmt.Println("🔇 Audio playback stopped")
 }
 
 // Write queues an audio frame for playback
@@ -169,19 +227,5 @@ func (out *OutputStream) Write(frame []byte) error {
 	}
 }
 
-// playbackLoop simulates audio playback
-// TODO: Replace with real PortAudio playback
-func (out *OutputStream) playbackLoop() {
-	frameDuration := time.Duration(out.config.FrameSize*1000/out.config.SampleRate) * time.Millisecond
-
-	for {
-		select {
-		case frame := <-out.frames:
-			// In production, this would write to PortAudio
-			_ = frame
-			time.Sleep(frameDuration)
-		case <-out.stopChan:
-			return
-		}
-	}
-}
+// Note: Playback is now handled by malgo's data callback in Start()
+// The callback reads from out.frames channel and copies data to the audio device
