@@ -81,32 +81,35 @@ func (p *Packet) Marshal() ([]byte, error) {
 	totalSize := HeaderSize + len(p.Payload)
 	buf := make([]byte, totalSize)
 
-	// Version and Type (4 bits each)
-	buf[0] = (p.Version << 4) | (p.Type & 0x0F)
+	// Version (full byte)
+	buf[0] = p.Version
+
+	// Type (full byte)
+	buf[1] = p.Type
 
 	// Flags
-	buf[1] = p.Flags
+	buf[2] = p.Flags
 
 	// Payload Length
-	binary.BigEndian.PutUint16(buf[2:4], p.PayloadLength)
+	binary.BigEndian.PutUint16(buf[3:5], p.PayloadLength)
 
 	// Timestamp
-	binary.BigEndian.PutUint64(buf[4:12], uint64(p.Timestamp))
+	binary.BigEndian.PutUint64(buf[5:13], uint64(p.Timestamp))
 
 	// Source IPv6 (16 bytes)
-	copy(buf[12:28], p.SourceIPv6[:])
+	copy(buf[13:29], p.SourceIPv6[:])
 
 	// Callsign (16 bytes)
-	copy(buf[28:44], p.Callsign[:])
+	copy(buf[29:45], p.Callsign[:])
 
 	// Sequence Number
-	buf[44] = p.SequenceNum
+	buf[45] = p.SequenceNum
 
 	// Signal Quality
-	buf[45] = p.SignalQuality
+	buf[46] = p.SignalQuality
 
 	// Reserved
-	buf[46] = p.Reserved
+	buf[47] = p.Reserved
 
 	// Payload
 	copy(buf[HeaderSize:], p.Payload)
@@ -122,33 +125,35 @@ func Unmarshal(data []byte) (*Packet, error) {
 
 	p := &Packet{}
 
-	// Version and Type
-	p.Version = (data[0] >> 4) & 0x0F
-	p.Type = data[0] & 0x0F
+	// Version (full byte)
+	p.Version = data[0]
+
+	// Type (full byte)
+	p.Type = data[1]
 
 	// Flags
-	p.Flags = data[1]
+	p.Flags = data[2]
 
 	// Payload Length
-	p.PayloadLength = binary.BigEndian.Uint16(data[2:4])
+	p.PayloadLength = binary.BigEndian.Uint16(data[3:5])
 
 	// Timestamp
-	p.Timestamp = int64(binary.BigEndian.Uint64(data[4:12]))
+	p.Timestamp = int64(binary.BigEndian.Uint64(data[5:13]))
 
 	// Source IPv6
-	copy(p.SourceIPv6[:], data[12:28])
+	copy(p.SourceIPv6[:], data[13:29])
 
 	// Callsign
-	copy(p.Callsign[:], data[28:44])
+	copy(p.Callsign[:], data[29:45])
 
 	// Sequence Number
-	p.SequenceNum = data[44]
+	p.SequenceNum = data[45]
 
 	// Signal Quality
-	p.SignalQuality = data[45]
+	p.SignalQuality = data[46]
 
 	// Reserved
-	p.Reserved = data[46]
+	p.Reserved = data[47]
 
 	// Payload
 	if len(data) > HeaderSize {
