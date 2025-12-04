@@ -268,60 +268,55 @@
 
 ## Layer 5: Application Layer (Emergency Features)
 
-**Status:** 🚧 To implement
+**Status:** ✅ Priority Signaling Complete | 🚧 Auto-tune To implement
 
 ### 5.1 Emergency Channels
 
 **Goal:** Pre-defined emergency channels
 
-- [ ] Define channel registry
-  ```yaml
-  emergency:
-    group: "emergency"
-    port: 8790
-    priority: critical
-    auto_tune: true
+- [x] Define channel registry
+  - [x] emergency (8790) - critical priority
+  - [x] netcontrol (8791) - emergency priority
+  - [x] medical (8792) - emergency priority
+  - [x] weather (8793) - high priority
+  - [x] sar (8794) - emergency priority
+  - [x] community (8795) - normal priority
+  - [x] talk (8798) - normal priority
+  - [x] test (8799) - normal priority
 
-  netcontrol:
-    group: "netcontrol"
-    port: 8791
-    priority: emergency
-    auto_tune: false
+- [x] Load channel definitions (pkg/emergency/channels.go)
+- [x] Emergency settings with auto-tune preferences
+- [ ] UI shortcuts (e.g., "Emergency" button) - Layer 7
 
-  medical:
-    group: "medical"
-    port: 8792
-    priority: emergency
-    auto_tune: prompt
-  ```
-
-- [ ] Load from config
-- [ ] UI shortcuts (e.g., "Emergency" button)
-
-**Test:** UI can quick-tune to emergency channels
+**Test:** ✅ Channel registry works, emergency-test program demonstrates
 
 ### 5.2 Priority Signaling
 
 **Goal:** Emergency broadcasts interrupt normal traffic
 
-- [ ] RTCP APP extension for priority
-  - [ ] Custom RTCP packet type
-  - [ ] Priority field: 0=normal, 1=high, 2=emergency, 3=critical
-  - [ ] Emergency message text
+- [x] Priority encoding in packet flags
+  - [x] Use bits 4-5 of Flags field (not RTCP)
+  - [x] Priority field: 0=normal, 1=high, 2=emergency, 3=critical
+  - [x] SetPriority() and GetPriority() methods
 
-- [ ] Priority handling (receiver)
-  - [ ] Detect high-priority RTCP
-  - [ ] Log event
-  - [ ] Notify UI
-  - [ ] If critical: prompt user to switch
+- [x] Priority handling (receiver)
+  - [x] Detect priority in audio packets
+  - [x] Log priority changes
+  - [x] Visual alerts with emojis (🚨 critical, ⚠️ emergency, 📢 high)
+  - [ ] If critical: prompt user to switch - Future enhancement
 
-- [ ] Auto-tune behavior
-  - [ ] User preference: always/prompt/never
+- [x] Broadcaster priority assignment
+  - [x] Automatic priority based on channel/group
+  - [x] Priority set from channel registry on startup
+
+- [ ] Auto-tune behavior - Future enhancement
+  - [x] User preference types defined: always/prompt/never
+  - [x] EmergencySettings struct with preferences
   - [ ] If "always": auto-switch to emergency
   - [ ] If "prompt": show notification
-  - [ ] If "never": just log
+  - [ ] If "never": just log (currently implemented)
 
-**Test:** Emergency broadcast triggers auto-tune
+**Test:** ✅ emergency-test demonstrates priority detection and visual alerts
 
 ### 5.3 Net Control Protocol
 
