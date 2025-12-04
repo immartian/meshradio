@@ -30,6 +30,14 @@ func NewMP3Source(filepath string, config StreamConfig) (*MP3Source, error) {
 		return nil, fmt.Errorf("failed to open MP3 file: %w", err)
 	}
 
+	// Get file size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, fmt.Errorf("failed to stat MP3 file: %w", err)
+	}
+	fmt.Printf("📁 Opening MP3: %s (size=%d bytes)\n", filepath, fileInfo.Size())
+
 	decoder, err := mp3.NewDecoder(file)
 	if err != nil {
 		file.Close()
@@ -38,6 +46,33 @@ func NewMP3Source(filepath string, config StreamConfig) (*MP3Source, error) {
 
 	srcSampleRate := decoder.SampleRate()
 	srcChannels := 2 // MP3 is always stereo in go-mp3
+
+	// Get MP3 info
+	length := decoder.Length()
+	duration := float64(length) / float64(srcSampleRate) / 4.0 // 4 = 2 channels * 2 bytes per sample
+	fmt.Printf("📁 MP3 info: sampleRate=%d Hz, length=%d samples, duration=%.1f sec\n",
+		srcSampleRate, length, duration)
+
+	// Test read to verify decoder can read actual audio data
+	testBuf := make([]byte, 1024)
+	testN, testErr := decoder.Read(testBuf)
+	if testErr != nil && testErr != io.EOF {
+		fmt.Printf("⚠️  Warning: Test read failed: %v\n", testErr)
+	} else {
+		// Check if test data contains non-zero bytes
+		nonZeroBytes := 0
+		for i := 0; i < testN && i < 100; i++ {
+			if testBuf[i] != 0 {
+				nonZeroBytes++
+			}
+		}
+		fmt.Printf("🔍 Test read: %d bytes, nonZero=%d/100, first 16 bytes: %v\n",
+			testN, nonZeroBytes, testBuf[:min(16, testN)])
+
+		if nonZeroBytes == 0 && testN > 0 {
+			fmt.Printf("⚠️  WARNING: MP3 decoder returned %d bytes but they are all ZERO! File may be silent or decoder issue.\n", testN)
+		}
+	}
 
 	// Check if we need resampling
 	needResample := srcSampleRate != config.SampleRate
