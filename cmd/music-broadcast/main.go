@@ -163,20 +163,20 @@ func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign strin
 	// Create audio config for music - use high quality settings
 	audioConfig := audio.DefaultConfig()
 
-	// Create MP3 source
-	mp3Source, err := audio.NewMP3Source(filepath, audioConfig)
+	// Create FFmpeg source (more reliable than go-mp3)
+	ffmpegSource, err := audio.NewFFmpegSource(filepath, audioConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create MP3 source: %w", err)
+		return fmt.Errorf("failed to create FFmpeg source: %w", err)
 	}
 
-	// Create broadcaster with MP3 source
+	// Create broadcaster with FFmpeg source
 	cfg := broadcaster.Config{
 		Callsign:    callsign,
 		IPv6:        ipv6,
 		Port:        port,
 		Group:       group,
 		AudioConfig: audioConfig,
-		AudioSource: mp3Source, // Use MP3 as audio source!
+		AudioSource: ffmpegSource, // Use FFmpeg as audio source!
 	}
 
 	b, err := broadcaster.New(cfg)
@@ -190,7 +190,7 @@ func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign strin
 	}
 
 	// Wait for file to finish or interrupt
-	// The broadcaster will automatically stop when MP3 source returns EOF
+	// The broadcaster will automatically stop when FFmpeg source returns EOF
 	// We'll check periodically for signals
 	for {
 		select {
@@ -199,7 +199,7 @@ func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign strin
 			return fmt.Errorf("interrupted")
 		case <-time.After(1 * time.Second):
 			// Check if source is still running
-			if !mp3Source.IsRunning() {
+			if !ffmpegSource.IsRunning() {
 				b.Stop()
 				return io.EOF
 			}
