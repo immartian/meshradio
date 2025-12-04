@@ -1,5 +1,10 @@
 # Binaries
 meshradio
+music-broadcast
+emergency-test
+mdns-test
+multicast-test
+rtp-test
 *.exe
 *.dll
 *.so
