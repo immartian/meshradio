@@ -31,13 +31,42 @@ func NewMP3Source(filepath string, config StreamConfig) (*MP3Source, error) {
 		return nil, fmt.Errorf("failed to open MP3 file: %w", err)
 	}
 
-	// Get file size
+	// Get file size and verify it's readable
 	fileInfo, err := file.Stat()
 	if err != nil {
 		file.Close()
 		return nil, fmt.Errorf("failed to stat MP3 file: %w", err)
 	}
 	fmt.Printf("📁 Opening MP3: %s (size=%d bytes)\n", filepath, fileInfo.Size())
+
+	// Test: Read first 512 bytes of raw file to verify it's not corrupted
+	testBuf := make([]byte, 512)
+	_, err = file.Read(testBuf)
+	if err != nil && err != io.EOF {
+		file.Close()
+		return nil, fmt.Errorf("failed to test read MP3 file: %w", err)
+	}
+	fmt.Printf("🔍 Raw file header (first 32 bytes): %v\n", testBuf[:32])
+
+	// Check for MP3 sync word (0xFF 0xFB, 0xFF 0xFA, or 0xFF 0xF3)
+	foundSync := false
+	for i := 0; i < len(testBuf)-1; i++ {
+		if testBuf[i] == 0xFF && (testBuf[i+1]&0xE0) == 0xE0 {
+			fmt.Printf("✅ Found MP3 sync word at offset %d\n", i)
+			foundSync = true
+			break
+		}
+	}
+	if !foundSync {
+		fmt.Printf("⚠️  No MP3 sync word found in first 512 bytes - might be ID3 tags or not MP3\n")
+	}
+
+	// Seek back to beginning for decoder
+	_, err = file.Seek(0, io.SeekStart)
+	if err != nil {
+		file.Close()
+		return nil, fmt.Errorf("failed to seek back to start: %w", err)
+	}
 
 	decoder, err := mp3.NewDecoder(file)
 	if err != nil {
@@ -133,6 +162,23 @@ func (m *MP3Source) Read() ([]int16, error) {
 		// Read a chunk of MP3 data
 		chunk := make([]byte, 4096)
 		n, err := m.decoder.Read(chunk)
+
+		// Debug first read
+		if readCount == 0 {
+			if err == io.EOF {
+				fmt.Printf("⚠️  MP3 decoder returned EOF on first read!\n")
+				return nil, io.EOF
+			}
+			if err != nil {
+				fmt.Printf("⚠️  MP3 decoder error on first read: %v\n", err)
+				return nil, fmt.Errorf("failed to read MP3: %w", err)
+			}
+			if n == 0 {
+				fmt.Printf("⚠️  MP3 decoder returned 0 bytes on first read (no error)\n")
+			}
+			fmt.Printf("✅ MP3 decoder first read: %d bytes, err=%v\n", n, err)
+		}
+
 		if err == io.EOF {
 			// End of file - pad with silence if needed
 			if len(m.buffer) > 0 {
