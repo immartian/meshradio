@@ -108,6 +108,7 @@ func (m *MP3Source) Read() ([]int16, error) {
 		samplesNeeded *= 2
 	}
 
+	readCount := 0
 	// Read and decode MP3 data
 	for len(m.buffer) < samplesNeeded {
 		// Read a chunk of MP3 data
@@ -134,6 +135,23 @@ func (m *MP3Source) Read() ([]int16, error) {
 			samples[i] = int16(chunk[i*2]) | int16(chunk[i*2+1])<<8
 		}
 
+		// Debug: Check sample values
+		if readCount == 0 {
+			nonZero := 0
+			maxAbs := int16(0)
+			for _, s := range samples[:min(100, len(samples))] {
+				if s != 0 {
+					nonZero++
+				}
+				if abs(s) > maxAbs {
+					maxAbs = abs(s)
+				}
+			}
+			fmt.Printf("🎵 MP3 decode: read %d bytes → %d samples, nonZero=%d/100, maxAbs=%d, needResample=%v\n",
+				n, len(samples), nonZero, maxAbs, m.needResample)
+		}
+		readCount++
+
 		// Resample if needed
 		if m.needResample {
 			resampled := m.resampler.Resample(samples)
@@ -148,6 +166,22 @@ func (m *MP3Source) Read() ([]int16, error) {
 	copy(frame, m.buffer[:samplesNeeded])
 	m.buffer = m.buffer[samplesNeeded:]
 
+	// Debug: Check final frame values (only first few times)
+	if readCount > 0 {
+		nonZero := 0
+		maxAbs := int16(0)
+		for _, s := range frame[:min(100, len(frame))] {
+			if s != 0 {
+				nonZero++
+			}
+			if abs(s) > maxAbs {
+				maxAbs = abs(s)
+			}
+		}
+		fmt.Printf("🎵 MP3 frame output: %d samples, nonZero=%d/100, maxAbs=%d\n",
+			len(frame), nonZero, maxAbs)
+	}
+
 	// Convert stereo to mono if needed
 	if m.channels == 2 && m.config.Channels == 1 {
 		mono := make([]int16, len(frame)/2)
@@ -161,6 +195,20 @@ func (m *MP3Source) Read() ([]int16, error) {
 	}
 
 	return frame, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func abs(x int16) int16 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 // SampleRate returns the configured output sample rate
