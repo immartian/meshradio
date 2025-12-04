@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/meshradio/meshradio/pkg/audio"
+	"github.com/meshradio/meshradio/pkg/emergency"
 	"github.com/meshradio/meshradio/pkg/network"
 	"github.com/meshradio/meshradio/pkg/protocol"
 )
@@ -36,6 +37,10 @@ type Listener struct {
 	packetsReceived uint64
 	lastSeqNum      uint8
 	stationCallsign string
+
+	// Emergency handling (Layer 5)
+	emergencySettings emergency.EmergencySettings
+	lastPriority      uint8
 }
 
 // Config holds listener configuration
@@ -67,18 +72,19 @@ func New(cfg Config) (*Listener, error) {
 	}
 
 	return &Listener{
-		callsign:   cfg.Callsign,
-		localIPv6:  cfg.LocalIPv6,
-		localPort:  cfg.LocalPort,
-		targetIPv6: cfg.TargetIPv6,
-		targetPort: cfg.TargetPort,
-		group:      group,
-		ssmSource:  cfg.SSMSource,
-		transport:  transport,
-		audioOut:   audioOut,
-		codec:      codec,
-		config:     cfg.AudioConfig,
-		stopChan:   make(chan struct{}),
+		callsign:          cfg.Callsign,
+		localIPv6:         cfg.LocalIPv6,
+		localPort:         cfg.LocalPort,
+		targetIPv6:        cfg.TargetIPv6,
+		targetPort:        cfg.TargetPort,
+		group:             group,
+		ssmSource:         cfg.SSMSource,
+		transport:         transport,
+		audioOut:          audioOut,
+		codec:             codec,
+		config:            cfg.AudioConfig,
+		stopChan:          make(chan struct{}),
+		emergencySettings: emergency.DefaultSettings(),
 	}, nil
 }
 
@@ -172,6 +178,15 @@ func (l *Listener) receiveLoop() {
 func (l *Listener) handleAudioPacket(packet *protocol.Packet) {
 	l.packetsReceived++
 
+	// Get priority from packet (Layer 5: Emergency)
+	priority := packet.GetPriority()
+
+	// Check for priority change (emergency broadcast)
+	if priority != l.lastPriority {
+		l.handlePriorityChange(packet, priority)
+		l.lastPriority = priority
+	}
+
 	// Parse audio payload
 	audioPacket, err := protocol.UnmarshalAudioPayload(packet.Payload)
 	if err != nil {
@@ -189,13 +204,48 @@ func (l *Listener) handleAudioPacket(packet *protocol.Packet) {
 	// Play audio
 	l.audioOut.Write(pcm)
 
-	// Log periodically
+	// Log periodically with priority indicator
 	if l.packetsReceived%50 == 0 {
-		fmt.Printf("Received: packets=%d, seq=%d, from=%s\n",
-			l.packetsReceived, packet.SequenceNum, packet.GetCallsign())
+		priorityStr := ""
+		if priority > 0 {
+			p := emergency.Priority(priority)
+			priorityStr = fmt.Sprintf(" [%s]", p.String())
+		}
+		fmt.Printf("Received: packets=%d, seq=%d, from=%s%s\n",
+			l.packetsReceived, packet.SequenceNum, packet.GetCallsign(), priorityStr)
 	}
 
 	l.lastSeqNum = packet.SequenceNum
+}
+
+// handlePriorityChange handles priority level changes
+func (l *Listener) handlePriorityChange(packet *protocol.Packet, priority uint8) {
+	p := emergency.Priority(priority)
+
+	// Only log significant priority changes
+	if priority < uint8(emergency.PriorityHigh) {
+		return
+	}
+
+	sourceIPv6 := protocol.BytesToIPv6(packet.SourceIPv6)
+	callsign := packet.GetCallsign()
+
+	switch {
+	case priority >= uint8(emergency.PriorityCritical):
+		fmt.Printf("\n🚨 CRITICAL EMERGENCY BROADCAST from %s (%s)\n",
+			callsign, sourceIPv6)
+		fmt.Printf("   Priority: %s | Group: %s\n\n", p.String(), l.group)
+
+	case priority >= uint8(emergency.PriorityEmergency):
+		fmt.Printf("\n⚠️  EMERGENCY BROADCAST from %s (%s)\n",
+			callsign, sourceIPv6)
+		fmt.Printf("   Priority: %s | Group: %s\n\n", p.String(), l.group)
+
+	case priority >= uint8(emergency.PriorityHigh):
+		fmt.Printf("\n📢 High priority broadcast from %s (%s)\n",
+			callsign, sourceIPv6)
+		fmt.Printf("   Priority: %s | Group: %s\n\n", p.String(), l.group)
+	}
 }
 
 // handleBeacon processes a beacon packet

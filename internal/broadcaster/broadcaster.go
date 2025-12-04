@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/meshradio/meshradio/pkg/audio"
+	"github.com/meshradio/meshradio/pkg/emergency"
 	"github.com/meshradio/meshradio/pkg/multicast"
 	"github.com/meshradio/meshradio/pkg/network"
 	"github.com/meshradio/meshradio/pkg/protocol"
@@ -27,6 +28,7 @@ type Broadcaster struct {
 	ipv6       net.IP
 	port       int
 	group      string  // Multicast group name (e.g., "emergency", "community")
+	priority   uint8   // Broadcast priority (0-3)
 	transport  *network.Transport
 	audioIn    *audio.InputStream
 	codec      audio.Codec
@@ -38,6 +40,9 @@ type Broadcaster struct {
 
 	// Subscription manager (Layer 4: Multicast Overlay)
 	subManager *multicast.SubscriptionManager
+
+	// Channel registry (Layer 5: Emergency)
+	channelRegistry *emergency.ChannelRegistry
 
 	// Legacy listener tracking (deprecated - use subManager instead)
 	listeners    map[string]*ListenerConn // key: "ipv6:port"
@@ -69,18 +74,27 @@ func New(cfg Config) (*Broadcaster, error) {
 		group = "default"
 	}
 
+	// Get priority for this channel/group
+	channelRegistry := emergency.NewChannelRegistry()
+	priority := uint8(emergency.PriorityNormal) // Default
+	if ch, ok := channelRegistry.GetByGroup(group); ok {
+		priority = uint8(ch.Priority)
+	}
+
 	return &Broadcaster{
-		callsign:   cfg.Callsign,
-		ipv6:       cfg.IPv6,
-		port:       cfg.Port,
-		group:      group,
-		transport:  transport,
-		audioIn:    audioIn,
-		codec:      codec,
-		config:     cfg.AudioConfig,
-		stopChan:   make(chan struct{}),
-		subManager: multicast.NewSubscriptionManager(),
-		listeners:  make(map[string]*ListenerConn),
+		callsign:        cfg.Callsign,
+		ipv6:            cfg.IPv6,
+		port:            cfg.Port,
+		group:           group,
+		priority:        priority,
+		transport:       transport,
+		audioIn:         audioIn,
+		codec:           codec,
+		config:          cfg.AudioConfig,
+		stopChan:        make(chan struct{}),
+		subManager:      multicast.NewSubscriptionManager(),
+		channelRegistry: channelRegistry,
+		listeners:       make(map[string]*ListenerConn),
 	}, nil
 }
 
@@ -112,7 +126,13 @@ func (b *Broadcaster) Start() error {
 		LastSeen: time.Now(),
 	}
 	b.subManager.RegisterBroadcaster(b.group, broadcaster)
-	fmt.Printf("Registered broadcaster in group '%s'\n", b.group)
+
+	// Get channel info for logging
+	priorityStr := "normal"
+	if ch, ok := b.channelRegistry.GetByGroup(b.group); ok {
+		priorityStr = ch.Priority.String()
+	}
+	fmt.Printf("Registered broadcaster in group '%s' with priority '%s'\n", b.group, priorityStr)
 
 	// Start broadcast loop
 	go b.broadcastLoop()
@@ -187,6 +207,7 @@ func (b *Broadcaster) broadcastLoop() {
 			audioPayload,
 		)
 		packet.SequenceNum = b.seqNum
+		packet.SetPriority(b.priority) // Set priority (Layer 5: Emergency)
 		b.seqNum++
 
 		// Get subscribers for this broadcaster (using multicast overlay)

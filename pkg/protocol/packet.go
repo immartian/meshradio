@@ -29,9 +29,13 @@ const (
 
 // Packet flags
 const (
-	FlagEncrypted uint8 = 0x01
-	FlagPriority  uint8 = 0x02
-	FlagCompressed uint8 = 0x04
+	FlagEncrypted  uint8 = 0x01 // Bit 0: Encrypted
+	FlagCompressed uint8 = 0x02 // Bit 1: Compressed
+	// Bits 2-3: Reserved
+	// Bits 4-5: Priority (0-3)
+	FlagPriority0 uint8 = 0x10 // Bit 4: Priority bit 0
+	FlagPriority1 uint8 = 0x20 // Bit 5: Priority bit 1
+	FlagPriorityMask uint8 = 0x30 // Bits 4-5: Priority mask
 )
 
 // Header size in bytes
@@ -174,4 +178,18 @@ func (p *Packet) GetCallsign() string {
 		}
 	}
 	return string(p.Callsign[:length])
+}
+
+// GetPriority extracts priority from packet flags (bits 4-5)
+func (p *Packet) GetPriority() uint8 {
+	return (p.Flags & FlagPriorityMask) >> 4
+}
+
+// SetPriority sets priority in packet flags (bits 4-5)
+// Priority should be 0-3 (0=normal, 1=high, 2=emergency, 3=critical)
+func (p *Packet) SetPriority(priority uint8) {
+	// Ensure priority is 0-3
+	priority = priority & 0x03
+	// Clear existing priority bits and set new priority
+	p.Flags = (p.Flags & ^FlagPriorityMask) | (priority << 4)
 }
