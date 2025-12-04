@@ -178,7 +178,7 @@ func (s *Server) handleBroadcastStart(w http.ResponseWriter, r *http.Request) {
 	cfg := broadcaster.Config{
 		Callsign:    s.callsign,
 		IPv6:        s.ipv6,
-		Port:        8799, // 799 ~ Ygg
+		Port:        s.port, // Use the port from command-line --port flag
 		Group:       "default", // TODO: Allow user to select group via API
 		AudioConfig: audio.DefaultConfig(),
 	}
@@ -240,7 +240,7 @@ func (s *Server) handleListenStart(w http.ResponseWriter, r *http.Request) {
 		LocalIPv6:   s.ipv6,
 		TargetIPv6:  targetIPv6,
 		TargetPort:  8799, // 799 ~ Ygg (broadcaster port)
-		LocalPort:   9799, // 799 ~ Ygg (listener port, pairs with 8799)
+		LocalPort:   s.port, // Use the port from command-line --port flag
 		Group:       "default", // TODO: Allow user to select group via API
 		SSMSource:   nil, // Regular multicast (receive from all sources)
 		AudioConfig: audio.DefaultConfig(),
