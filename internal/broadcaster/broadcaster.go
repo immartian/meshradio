@@ -177,6 +177,8 @@ func (b *Broadcaster) broadcastLoop() {
 	var ipv6Bytes [16]byte
 	copy(ipv6Bytes[:], b.ipv6.To16())
 
+	fmt.Println("Broadcast loop started")
+
 	for {
 		select {
 		case <-b.stopChan:
@@ -187,6 +189,9 @@ func (b *Broadcaster) broadcastLoop() {
 		// Read audio frame (as int16 samples)
 		samples, err := b.audioSource.Read()
 		if err != nil {
+			if b.seqNum%50 == 0 { // Log periodically
+				fmt.Printf("Audio source read error: %v\n", err)
+			}
 			continue
 		}
 

@@ -21,7 +21,7 @@ import (
 var (
 	musicDir  = flag.String("dir", "", "Music directory to scan (default: ~/Music)")
 	callsign  = flag.String("callsign", "MUSIC-DJ", "Your callsign")
-	port      = flag.Int("port", 8798, "Broadcast port (default: 8798 for 'talk' channel)")
+	port      = flag.Int("port", 8799, "Broadcast port (default: 8799 standard broadcaster port)")
 	group     = flag.String("group", "talk", "Multicast group")
 	shuffle   = flag.Bool("shuffle", false, "Shuffle playlist")
 	loop      = flag.Bool("loop", true, "Loop playlist")
