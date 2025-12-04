@@ -125,7 +125,7 @@ type OutputStream struct {
 func NewOutputStream(config StreamConfig) *OutputStream {
 	return &OutputStream{
 		config:   config,
-		frames:   make(chan []byte, 10),
+		frames:   make(chan []byte, 50), // Larger buffer for jitter
 		stopChan: make(chan struct{}),
 	}
 }
@@ -151,6 +151,8 @@ func (out *OutputStream) Start() error {
 	deviceConfig.Playback.Format = malgo.FormatS16
 	deviceConfig.Playback.Channels = uint32(out.config.Channels)
 	deviceConfig.SampleRate = uint32(out.config.SampleRate)
+	deviceConfig.PeriodSizeInFrames = uint32(out.config.FrameSize)
+	deviceConfig.Periods = 4 // 4 periods for smoother playback
 	deviceConfig.Alsa.NoMMap = 1
 
 	// Data callback - called when device needs audio data
@@ -235,6 +237,7 @@ func (out *OutputStream) Write(frame []byte) error {
 		return fmt.Errorf("stream stopped")
 	default:
 		// Buffer full, drop frame
+		fmt.Printf("⚠️  Audio buffer full, dropping frame (buffer=%d/%d)\n", len(out.frames), cap(out.frames))
 		return nil
 	}
 }
