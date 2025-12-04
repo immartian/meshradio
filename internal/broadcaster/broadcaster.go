@@ -279,7 +279,10 @@ func (b *Broadcaster) subscriptionLoop() {
 			continue
 		}
 
-		fmt.Printf("Received packet type=%d from %s\n", packet.Type, protocol.BytesToIPv6(packet.SourceIPv6))
+		// Only log non-heartbeat packets to reduce spam
+		if packet.Type != protocol.PacketTypeHeartbeat {
+			fmt.Printf("Received packet type=%d from %s\n", packet.Type, protocol.BytesToIPv6(packet.SourceIPv6))
+		}
 
 		switch packet.Type {
 		case protocol.PacketTypeSubscribe:
