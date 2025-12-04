@@ -1,42 +1,32 @@
-// +build opus
-
 package audio
 
 import (
 	"fmt"
 
-	"gopkg.in/hraban/opus.v2"
+	"layeh.com/gopus"
 )
 
-// OpusCodec implements Opus audio encoding/decoding
+// OpusCodec implements Opus audio compression
 type OpusCodec struct {
-	encoder   *opus.Encoder
-	decoder   *opus.Decoder
+	encoder   *gopus.Encoder
+	decoder   *gopus.Decoder
 	frameSize int
 	channels  int
 }
 
 // NewOpusCodec creates a new Opus codec
-func NewOpusCodec(sampleRate, channels, frameSize int) (*OpusCodec, error) {
+func NewOpusCodec(sampleRate, channels, frameSize, bitrate int) (*OpusCodec, error) {
 	// Create encoder
-	encoder, err := opus.NewEncoder(sampleRate, channels, opus.AppVoIP)
+	encoder, err := gopus.NewEncoder(sampleRate, channels, gopus.Audio)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Opus encoder: %w", err)
 	}
 
-	// Set encoding parameters for voice
-	encoder.SetBitrate(64000)                        // 64 kbps
-	encoder.SetComplexity(10)                        // Max quality
-	encoder.SetDTX(true)                             // Discontinuous transmission
-	encoder.SetInBandFEC(true)                       // Forward error correction
-	encoder.SetPacketLossPerc(10)                    // Expected 10% packet loss
-	encoder.SetMaxBandwidth(opus.Fullband)           // Full bandwidth
-	encoder.SetVBR(true)                             // Variable bitrate
-	encoder.SetVBRConstraint(false)                  // Unconstrained VBR
-	encoder.SetSignal(opus.SignalVoice)              // Optimize for voice
+	// Set bitrate
+	encoder.SetBitrate(bitrate)
 
 	// Create decoder
-	decoder, err := opus.NewDecoder(sampleRate, channels)
+	decoder, err := gopus.NewDecoder(sampleRate, channels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Opus decoder: %w", err)
 	}
@@ -49,65 +39,49 @@ func NewOpusCodec(sampleRate, channels, frameSize int) (*OpusCodec, error) {
 	}, nil
 }
 
-// Encode compresses PCM audio
+// Encode compresses PCM audio to Opus
 func (c *OpusCodec) Encode(pcm []byte) ([]byte, error) {
-	// Convert bytes to int16 PCM
-	pcmSamples := make([]int16, len(pcm)/2)
-	for i := 0; i < len(pcmSamples); i++ {
-		pcmSamples[i] = int16(pcm[i*2]) | int16(pcm[i*2+1])<<8
+	// Convert bytes to int16 samples
+	samples := make([]int16, len(pcm)/2)
+	for i := 0; i < len(samples); i++ {
+		samples[i] = int16(pcm[i*2]) | int16(pcm[i*2+1])<<8
 	}
 
 	// Encode with Opus
-	data := make([]byte, 4000) // Max Opus frame size
-	n, err := c.encoder.Encode(pcmSamples, data)
+	encoded, err := c.encoder.Encode(samples, c.frameSize, 4000)
 	if err != nil {
-		return nil, fmt.Errorf("Opus encode error: %w", err)
+		return nil, fmt.Errorf("Opus encode failed: %w", err)
 	}
 
-	return data[:n], nil
+	return encoded, nil
 }
 
-// Decode decompresses Opus audio
+// Decode decompresses Opus to PCM audio
 func (c *OpusCodec) Decode(encoded []byte) ([]byte, error) {
 	// Decode with Opus
-	pcmSamples := make([]int16, c.frameSize*c.channels)
-	n, err := c.decoder.Decode(encoded, pcmSamples)
+	samples, err := c.decoder.Decode(encoded, c.frameSize, false)
 	if err != nil {
-		return nil, fmt.Errorf("Opus decode error: %w", err)
+		return nil, fmt.Errorf("Opus decode failed: %w", err)
 	}
 
-	// Convert int16 to bytes
-	pcm := make([]byte, n*2*c.channels)
-	for i := 0; i < n*c.channels; i++ {
-		pcm[i*2] = byte(pcmSamples[i])
-		pcm[i*2+1] = byte(pcmSamples[i] >> 8)
+	// Convert int16 samples back to bytes
+	pcm := make([]byte, len(samples)*2)
+	for i := 0; i < len(samples); i++ {
+		pcm[i*2] = byte(samples[i])
+		pcm[i*2+1] = byte(samples[i] >> 8)
 	}
 
 	return pcm, nil
 }
 
-// FrameSize returns the frame size
+// FrameSize returns the frame size in samples
 func (c *OpusCodec) FrameSize() int {
 	return c.frameSize
 }
 
 // Reset resets the codec state
 func (c *OpusCodec) Reset() error {
-	if err := c.encoder.ResetState(); err != nil {
-		return err
-	}
-	if err := c.decoder.ResetState(); err != nil {
-		return err
-	}
+	c.encoder.ResetState()
+	c.decoder.ResetState()
 	return nil
-}
-
-// SetBitrate sets the encoding bitrate (in bps)
-func (c *OpusCodec) SetBitrate(bitrate int) error {
-	return c.encoder.SetBitrate(bitrate)
-}
-
-// SetComplexity sets encoding complexity (0-10)
-func (c *OpusCodec) SetComplexity(complexity int) error {
-	return c.encoder.SetComplexity(complexity)
 }

@@ -74,7 +74,16 @@ func New(cfg Config) (*Broadcaster, error) {
 		audioSource = audio.NewMicrophoneSource(cfg.AudioConfig)
 	}
 
-	codec := audio.NewDummyCodec(cfg.AudioConfig.FrameSize)
+	// Create Opus codec for compression
+	codec, err := audio.NewOpusCodec(
+		cfg.AudioConfig.SampleRate,
+		cfg.AudioConfig.Channels,
+		cfg.AudioConfig.FrameSize,
+		cfg.AudioConfig.Bitrate,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Opus codec: %w", err)
+	}
 
 	// Default group if not specified
 	group := cfg.Group
