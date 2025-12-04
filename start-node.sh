@@ -44,7 +44,7 @@ fi
 # Get IPv6
 print_info "Detecting Yggdrasil IPv6..."
 if command -v yggdrasilctl &> /dev/null; then
-    IPV6=$(yggdrasilctl getSelf | grep "IPv6 address" | awk '{print $3}')
+    IPV6=$(sudo yggdrasilctl getSelf 2>/dev/null | grep "IPv6 address" | awk '{print $3}')
     if [ -n "$IPV6" ]; then
         print_success "Your IPv6: $IPV6"
     else

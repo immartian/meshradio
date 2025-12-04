@@ -68,7 +68,7 @@ print_header "MeshRadio Integration Test - $NODE_ID"
 # Get Yggdrasil IPv6
 print_test "Getting Yggdrasil IPv6 address..."
 if command -v yggdrasilctl &> /dev/null; then
-    YGG_IPV6=$(yggdrasilctl getSelf | grep "IPv6 address" | awk '{print $3}')
+    YGG_IPV6=$(sudo yggdrasilctl getSelf 2>/dev/null | grep "IPv6 address" | awk '{print $3}')
     if [ -z "$YGG_IPV6" ]; then
         print_error "Could not get Yggdrasil IPv6"
         YGG_IPV6="::1"  # Fallback to localhost for testing
