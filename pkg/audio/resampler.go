@@ -26,28 +26,32 @@ func (r *SimpleResampler) Resample(input []int16) []int16 {
 	}
 
 	ratio := float64(r.toRate) / float64(r.fromRate)
-	outputLen := int(float64(len(input)) * ratio)
-	output := make([]int16, outputLen)
 
-	for i := 0; i < outputLen; i++ {
-		// Calculate position in input array
+	// Calculate number of frames (not samples)
+	inputFrames := len(input) / r.channels
+	outputFrames := int(float64(inputFrames) * ratio)
+	output := make([]int16, outputFrames*r.channels)
+
+	for i := 0; i < outputFrames; i++ {
+		// Calculate position in input frames
 		srcPos := float64(i) / ratio
 		srcIndex := int(srcPos)
 		frac := srcPos - float64(srcIndex)
 
 		// Handle per-channel for stereo/mono
 		for ch := 0; ch < r.channels; ch++ {
-			idx := srcIndex*r.channels + ch
+			srcIdx := srcIndex*r.channels + ch
+			outIdx := i*r.channels + ch
 
-			if idx+r.channels < len(input) {
+			if srcIdx+r.channels < len(input) {
 				// Linear interpolation between two samples
-				sample1 := float64(input[idx])
-				sample2 := float64(input[idx+r.channels])
+				sample1 := float64(input[srcIdx])
+				sample2 := float64(input[srcIdx+r.channels])
 				interpolated := sample1 + (sample2-sample1)*frac
-				output[i*r.channels+ch] = int16(interpolated)
-			} else if idx < len(input) {
+				output[outIdx] = int16(interpolated)
+			} else if srcIdx < len(input) {
 				// Just use the last sample
-				output[i*r.channels+ch] = input[idx]
+				output[outIdx] = input[srcIdx]
 			}
 		}
 	}
