@@ -233,6 +233,18 @@ func (b *Broadcaster) broadcastLoop() {
 		// Get subscribers for this broadcaster (using multicast overlay)
 		subscribers := b.subManager.GetSubscribersForSource(b.group, b.ipv6)
 
+		if b.seqNum%50 == 0 && len(subscribers) == 0 {
+			// Debug: why no subscribers?
+			allSubs := b.subManager.GetSubscribers(b.group)
+			fmt.Printf("DEBUG: GetSubscribersForSource returned 0, but GetSubscribers returned %d\n", len(allSubs))
+			if len(allSubs) > 0 {
+				for _, sub := range allSubs {
+					fmt.Printf("  - Subscriber: %s, SSMSource=%v, MatchesSource(%s)=%v\n",
+						sub.IPv6, sub.SSMSource, b.ipv6, sub.MatchesSource(b.ipv6))
+				}
+			}
+		}
+
 		// Send to all subscribed listeners (unicast fan-out)
 		for _, sub := range subscribers {
 			err = b.transport.Send(packet, sub.IPv6, sub.Port)
