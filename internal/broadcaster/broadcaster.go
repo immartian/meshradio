@@ -186,17 +186,13 @@ func (b *Broadcaster) broadcastLoop() {
 		default:
 		}
 
-		// Debug: confirm loop is running (every iteration until we find the hang)
-		if b.seqNum >= 145 && b.seqNum <= 155 {
-			fmt.Printf("DEBUG: Broadcast loop iteration, seqNum=%d, about to call audioSource.Read()\n", b.seqNum)
+		// Debug: log every 10 frames to see if loop continues
+		if b.seqNum%10 == 0 {
+			fmt.Printf("DEBUG: Broadcast loop iteration, seqNum=%d\n", b.seqNum)
 		}
 
 		// Read audio frame (as int16 samples)
 		samples, err := b.audioSource.Read()
-
-		if b.seqNum >= 145 && b.seqNum <= 155 {
-			fmt.Printf("DEBUG: audioSource.Read() returned, err=%v, samples=%d\n", err, len(samples))
-		}
 
 		if err != nil {
 			if b.seqNum%50 == 0 { // Log periodically
