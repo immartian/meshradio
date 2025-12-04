@@ -19,10 +19,10 @@ type StreamConfig struct {
 // DefaultConfig returns sensible defaults for voice
 func DefaultConfig() StreamConfig {
 	return StreamConfig{
-		SampleRate: 16000,  // 16kHz (lower for smaller packets)
-		Channels:   1,      // Mono for voice
-		Bitrate:    32000,  // 32kbps
-		FrameSize:  320,    // 20ms at 16kHz
+		SampleRate: 48000,  // 48kHz for music quality
+		Channels:   2,      // Stereo for music
+		Bitrate:    128000, // 128kbps for good music quality
+		FrameSize:  960,    // 20ms at 48kHz
 	}
 }
 
