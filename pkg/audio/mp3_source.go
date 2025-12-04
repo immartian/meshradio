@@ -129,6 +129,11 @@ func (m *MP3Source) Read() ([]int16, error) {
 			return nil, fmt.Errorf("failed to read MP3: %w", err)
 		}
 
+		// Debug: Check raw bytes read
+		if readCount == 0 {
+			fmt.Printf("🔍 Raw bytes read (first 32): %v\n", chunk[:min(32, n)])
+		}
+
 		// Convert bytes to int16 samples
 		samples := make([]int16, n/2)
 		for i := 0; i < n/2; i++ {
@@ -139,6 +144,7 @@ func (m *MP3Source) Read() ([]int16, error) {
 		if readCount == 0 {
 			nonZero := 0
 			maxAbs := int16(0)
+			fmt.Printf("🔍 First 16 samples: %v\n", samples[:min(16, len(samples))])
 			for _, s := range samples[:min(100, len(samples))] {
 				if s != 0 {
 					nonZero++
@@ -149,6 +155,8 @@ func (m *MP3Source) Read() ([]int16, error) {
 			}
 			fmt.Printf("🎵 MP3 decode: read %d bytes → %d samples, nonZero=%d/100, maxAbs=%d, needResample=%v\n",
 				n, len(samples), nonZero, maxAbs, m.needResample)
+			fmt.Printf("🔍 MP3 decoder info: sampleRate=%d, srcChannels=%d, targetRate=%d\n",
+				m.sampleRate, m.channels, m.config.SampleRate)
 		}
 		readCount++
 
