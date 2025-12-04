@@ -147,6 +147,7 @@ func (out *OutputStream) Start() error {
 		return fmt.Errorf("failed to initialize audio context: %w", err)
 	}
 	out.ctx = ctx
+	fmt.Printf("🎵 Malgo context initialized\n")
 
 	// Configure playback device
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
@@ -157,9 +158,18 @@ func (out *OutputStream) Start() error {
 	deviceConfig.Periods = 4 // 4 periods for smoother playback
 	deviceConfig.Alsa.NoMMap = 1
 
+	fmt.Printf("🎵 Device config: sampleRate=%d, channels=%d, periodSize=%d, periods=%d\n",
+		deviceConfig.SampleRate, deviceConfig.Playback.Channels,
+		deviceConfig.PeriodSizeInFrames, deviceConfig.Periods)
+
 	// Data callback - called when device needs audio data
 	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
 		out.callbackCount++
+
+		// Log first callback to confirm it's being invoked
+		if out.callbackCount == 1 {
+			fmt.Printf("🎯 First playback callback! framecount=%d, outputSize=%d\n", framecount, len(pOutputSample))
+		}
 
 		// Calculate expected bytes (framecount is frames, not samples)
 		expectedBytes := int(framecount) * out.config.Channels * 2 // 2 bytes per sample (int16)
@@ -206,8 +216,10 @@ func (out *OutputStream) Start() error {
 		return fmt.Errorf("failed to initialize playback device: %w", err)
 	}
 	out.device = device
+	fmt.Printf("🎵 Malgo device initialized\n")
 
 	// Start the device
+	fmt.Printf("🎵 Starting malgo device...\n")
 	if err := device.Start(); err != nil {
 		device.Uninit()
 		ctx.Uninit()
@@ -217,6 +229,7 @@ func (out *OutputStream) Start() error {
 	out.running = true
 	fmt.Printf("🔊 Audio playback started (%d Hz, %d channels, format=S16)\n",
 		out.config.SampleRate, out.config.Channels)
+	fmt.Printf("🎵 Waiting for first callback from malgo...\n")
 	return nil
 }
 
