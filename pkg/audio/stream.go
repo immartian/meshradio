@@ -188,10 +188,10 @@ func (out *OutputStream) Start() error {
 				}
 			}
 
-			// Log every 50 callbacks (~1 second)
-			if out.callbackCount%50 == 0 {
-				fmt.Printf("🔊 Playback: callback=%d, consumed=%d, buffer=%d/%d, framecount=%d\n",
-					out.callbackCount, out.framesConsumed, len(out.frames), cap(out.frames), framecount)
+			// Log every 10 callbacks for more frequent feedback
+			if out.callbackCount%10 == 0 {
+				fmt.Printf("🔊 Playback: callback=%d, consumed=%d, buffer=%d/%d, framecount=%d, frameSize=%d, expected=%d\n",
+					out.callbackCount, out.framesConsumed, len(out.frames), cap(out.frames), framecount, len(frame), expectedBytes)
 			}
 		default:
 			// No frame available, output silence
