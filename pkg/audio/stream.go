@@ -155,10 +155,21 @@ func (out *OutputStream) Start() error {
 
 	// Data callback - called when device needs audio data
 	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
+		// Calculate expected bytes (framecount is frames, not samples)
+		expectedBytes := int(framecount) * out.config.Channels * 2 // 2 bytes per sample (int16)
+
 		select {
 		case frame := <-out.frames:
-			// Copy frame data to output buffer
-			copy(pOutputSample, frame)
+			// Ensure we copy the right amount of data
+			if len(frame) >= expectedBytes {
+				copy(pOutputSample, frame[:expectedBytes])
+			} else {
+				// Frame too small, copy what we have and pad with silence
+				copy(pOutputSample, frame)
+				for i := len(frame); i < expectedBytes; i++ {
+					pOutputSample[i] = 0
+				}
+			}
 		default:
 			// No frame available, output silence
 			for i := range pOutputSample {
@@ -185,7 +196,8 @@ func (out *OutputStream) Start() error {
 	}
 
 	out.running = true
-	fmt.Println("🔊 Audio playback started")
+	fmt.Printf("🔊 Audio playback started (%d Hz, %d channels, format=S16)\n",
+		out.config.SampleRate, out.config.Channels)
 	return nil
 }
 
