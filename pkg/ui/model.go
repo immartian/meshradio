@@ -34,8 +34,9 @@ type Model struct {
 	err         error
 
 	// User config
-	callsign string
+	callsign  string
 	localIPv6 net.IP
+	port      int
 
 	// Display
 	width  int
@@ -44,7 +45,7 @@ type Model struct {
 }
 
 // NewModel creates a new UI model
-func NewModel(callsign string, ipv6 net.IP) Model {
+func NewModel(callsign string, ipv6 net.IP, port int) Model {
 	ti := textinput.New()
 	ti.Placeholder = "Enter IPv6 address..."
 	ti.Focus()
@@ -55,6 +56,7 @@ func NewModel(callsign string, ipv6 net.IP) Model {
 		mode:      ModeMain,
 		callsign:  callsign,
 		localIPv6: ipv6,
+		port:      port,
 		textInput: ti,
 		logs:      make([]string, 0, 10),
 	}
@@ -197,7 +199,7 @@ func (m Model) startBroadcast() (Model, tea.Cmd) {
 	cfg := broadcaster.Config{
 		Callsign:    m.callsign,
 		IPv6:        m.localIPv6,
-		Port:        8799, // 799 ~ Ygg (avoid conflict with Yggdrasil port 9001)
+		Port:        m.port, // Use port from command-line --port flag
 		Group:       "default", // TODO: Allow user to select group
 		AudioConfig: audio.DefaultConfig(),
 	}
@@ -217,7 +219,7 @@ func (m Model) startBroadcast() (Model, tea.Cmd) {
 
 	m.broadcaster = b
 	m.mode = ModeBroadcast
-	m.addLog(fmt.Sprintf("Broadcasting on %s:8799", m.localIPv6.String()))
+	m.addLog(fmt.Sprintf("Broadcasting on %s:%d", m.localIPv6.String(), m.port))
 	m.addLog("Share this address with listeners!")
 	m.addLog("Press 'q' or ESC to stop")
 
@@ -240,11 +242,11 @@ func (m Model) startListener(targetIPv6 net.IP) (Model, tea.Cmd) {
 	cfg := listener.Config{
 		Callsign:    m.callsign,
 		LocalIPv6:   m.localIPv6,
-		LocalPort:   9799, // 799 ~ Ygg (listener port, pairs with broadcaster 8799)
+		LocalPort:   m.port,      // Use port from command-line --port flag
 		TargetIPv6:  targetIPv6,
-		TargetPort:  8799, // 799 ~ Ygg (broadcaster port)
-		Group:       "default", // TODO: Allow user to select group
-		SSMSource:   nil, // Regular multicast (receive from all sources in group)
+		TargetPort:  m.port,      // Connect to broadcaster on same port
+		Group:       "default",   // TODO: Allow user to select group
+		SSMSource:   nil,         // Regular multicast (receive from all sources in group)
 		AudioConfig: audio.DefaultConfig(),
 	}
 
@@ -265,7 +267,7 @@ func (m Model) startListener(targetIPv6 net.IP) (Model, tea.Cmd) {
 
 	m.listener = l
 	m.mode = ModeListen
-	m.addLog(fmt.Sprintf("Listening to %s:9001", targetIPv6.String()))
+	m.addLog(fmt.Sprintf("Listening to %s:%d", targetIPv6.String(), m.port))
 	m.addLog("Press 'q' or ESC to stop")
 
 	return m, nil
@@ -377,7 +379,7 @@ func (m Model) renderBroadcast() string {
 %s %s
 
 Station:  %s
-Address:  %s:9001
+Address:  %s:%d
 Codec:    Opus (simulated)
 Quality:  48kHz, Mono, 64kbps
 Multicast: ff02::1 (all local nodes)
@@ -389,7 +391,7 @@ Audio Level: %s
    Status: Active
 
 Press 'q' or ESC to stop broadcasting
-`, status, dots, m.callsign, m.localIPv6.String(), audioLevel)
+`, status, dots, m.callsign, m.localIPv6.String(), m.port, audioLevel)
 
 	return info
 }

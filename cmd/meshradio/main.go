@@ -30,13 +30,13 @@ func main() {
 	if *guiMode {
 		runGUI(stationCallsign, localIPv6, *port)
 	} else {
-		runTUI(stationCallsign, localIPv6)
+		runTUI(stationCallsign, localIPv6, *port)
 	}
 }
 
-func runTUI(callsign string, ipv6 net.IP) {
+func runTUI(callsign string, ipv6 net.IP, port int) {
 	// Create and run TUI
-	model := ui.NewModel(callsign, ipv6)
+	model := ui.NewModel(callsign, ipv6, port)
 	p := tea.NewProgram(model)
 
 	if _, err := p.Run(); err != nil {
