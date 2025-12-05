@@ -87,36 +87,7 @@ Then open **http://localhost:8899** in your browser.
 
 ![MeshRadio Web GUI](screenshots/webui.png)
 
----
-
-##  24/7 Live Test Station
-
-Want to try MeshRadio right now? Connect to our **live test station** broadcasting 24/7:
-
-```
-Station IPv6: 206:6da3:9f2:60d2:9769:21c6:10fe:11d4
-Port: 8799
-```
-
-**Connect via Terminal:**
-```bash
-./meshradio
-# Select "3" for Listener
-# Enter IPv6: 206:6da3:9f2:60d2:9769:21c6:10fe:11d4
-# Enter port: 8799
-```
-
-**Connect via Web GUI:**
-```bash
-./meshradio --gui --callsign YOUR-CALLSIGN
-# Open http://localhost:8899
-# Click "Start Listening"
-# Paste: 206:6da3:9f2:60d2:9769:21c6:10fe:11d4
-```
-
-You should hear music within 1-2 seconds! This station streams a curated playlist continuously to demonstrate MeshRadio's stable long-duration broadcasting capabilities.
-
-> **Note:** You need Yggdrasil installed and running to connect to this station. For local testing without Yggdrasil, use `::1` (localhost) instead.
+> **Want to try it now?** Connect to our [24/7 live test station](https://github.com/immartian/meshradio/issues/1)!
 
 ---
 
