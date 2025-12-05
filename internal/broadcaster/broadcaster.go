@@ -51,12 +51,13 @@ type Broadcaster struct {
 
 // Config holds broadcaster configuration
 type Config struct {
-	Callsign    string
-	IPv6        net.IP
-	Port        int
-	Group       string              // Multicast group (e.g., "emergency", "community")
-	AudioConfig audio.StreamConfig
-	AudioSource audio.AudioSource   // Optional: custom audio source (microphone, MP3, etc.). If nil, uses microphone.
+	Callsign          string
+	IPv6              net.IP
+	Port              int
+	Group             string                        // Multicast group (e.g., "emergency", "community")
+	AudioConfig       audio.StreamConfig
+	AudioSource       audio.AudioSource             // Optional: custom audio source (microphone, MP3, etc.). If nil, uses microphone.
+	SubscriptionMgr   *multicast.SubscriptionManager // Optional: shared subscription manager. If nil, creates new one.
 }
 
 // New creates a new broadcaster
@@ -98,6 +99,12 @@ func New(cfg Config) (*Broadcaster, error) {
 		priority = uint8(ch.Priority)
 	}
 
+	// Use provided subscription manager or create new one
+	subManager := cfg.SubscriptionMgr
+	if subManager == nil {
+		subManager = multicast.NewSubscriptionManager()
+	}
+
 	return &Broadcaster{
 		callsign:        cfg.Callsign,
 		ipv6:            cfg.IPv6,
@@ -109,7 +116,7 @@ func New(cfg Config) (*Broadcaster, error) {
 		codec:           codec,
 		config:          cfg.AudioConfig,
 		stopChan:        make(chan struct{}),
-		subManager:      multicast.NewSubscriptionManager(),
+		subManager:      subManager,
 		channelRegistry: channelRegistry,
 		listeners:       make(map[string]*ListenerConn),
 	}, nil

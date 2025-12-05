@@ -115,9 +115,12 @@ func (sm *SubscriptionManager) RegisterBroadcaster(group string, broadcaster *Br
 	defer sm.mu.Unlock()
 
 	// Create group if it doesn't exist
-	if _, exists := sm.groups[group]; !exists {
-		fmt.Printf("DEBUG: RegisterBroadcaster creating new group '%s'\n", group)
+	if g, exists := sm.groups[group]; !exists {
+		fmt.Printf("DEBUG: RegisterBroadcaster creating new group '%s' (groups map has %d entries)\n", group, len(sm.groups))
 		sm.groups[group] = NewGroup(group)
+	} else {
+		fmt.Printf("DEBUG: RegisterBroadcaster found existing group '%s' with %d subscribers, %d broadcasters\n",
+			group, g.SubscriberCount(), g.BroadcasterCount())
 	}
 
 	g := sm.groups[group]

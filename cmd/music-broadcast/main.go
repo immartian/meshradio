@@ -15,6 +15,7 @@ import (
 	"github.com/hajimehoshi/go-mp3"
 	"github.com/meshradio/meshradio/internal/broadcaster"
 	"github.com/meshradio/meshradio/pkg/audio"
+	"github.com/meshradio/meshradio/pkg/multicast"
 	"github.com/meshradio/meshradio/pkg/yggdrasil"
 )
 
@@ -115,6 +116,9 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
+	// Create shared subscription manager (persists across songs)
+	subManager := multicast.NewSubscriptionManager()
+
 	// Play through playlist
 	for {
 		for i, file := range playlist.files {
@@ -132,8 +136,8 @@ func main() {
 			duration, sampleRate := getMP3Info(file)
 			fmt.Printf("   Duration: %s | Sample Rate: %d Hz\n", duration.Round(time.Second), sampleRate)
 
-			// Broadcast this file
-			if err := broadcastFile(file, ipv6, *port, *group, *callsign, sigChan); err != nil {
+			// Broadcast this file (pass shared subManager)
+			if err := broadcastFile(file, ipv6, *port, *group, *callsign, subManager, sigChan); err != nil {
 				if err == io.EOF {
 					// File finished normally
 					fmt.Printf("   ✅ Completed\n\n")
@@ -159,7 +163,7 @@ func main() {
 	fmt.Println("✅ Playlist complete!")
 }
 
-func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign string, sigChan chan os.Signal) error {
+func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign string, subMgr *multicast.SubscriptionManager, sigChan chan os.Signal) error {
 	// Create audio config for music - use high quality settings
 	audioConfig := audio.DefaultConfig()
 
@@ -169,14 +173,15 @@ func broadcastFile(filepath string, ipv6 net.IP, port int, group, callsign strin
 		return fmt.Errorf("failed to create FFmpeg source: %w", err)
 	}
 
-	// Create broadcaster with FFmpeg source
+	// Create broadcaster with FFmpeg source and shared subscription manager
 	cfg := broadcaster.Config{
-		Callsign:    callsign,
-		IPv6:        ipv6,
-		Port:        port,
-		Group:       group,
-		AudioConfig: audioConfig,
-		AudioSource: ffmpegSource, // Use FFmpeg as audio source!
+		Callsign:        callsign,
+		IPv6:            ipv6,
+		Port:            port,
+		Group:           group,
+		AudioConfig:     audioConfig,
+		AudioSource:     ffmpegSource,   // Use FFmpeg as audio source!
+		SubscriptionMgr: subMgr,          // Share subscription manager across songs!
 	}
 
 	b, err := broadcaster.New(cfg)
