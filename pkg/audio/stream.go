@@ -176,45 +176,37 @@ func (out *OutputStream) Start() error {
 		// Calculate expected bytes (framecount is frames, not samples)
 		expectedBytes := int(framecount) * out.config.Channels * 2 // 2 bytes per sample (int16)
 
-		select {
-		case frame := <-out.frames:
-			out.framesConsumed++
-			// Ensure we copy the right amount of data
-			if len(frame) >= expectedBytes {
-				copy(pOutputSample, frame[:expectedBytes])
-			} else {
-				// Frame too small, copy what we have and pad with silence
-				copy(pOutputSample, frame)
-				for i := len(frame); i < expectedBytes; i++ {
-					pOutputSample[i] = 0
-				}
-			}
-
-			// Log every 250 callbacks (every ~5 seconds)
-			if out.callbackCount%250 == 0 {
-				msg := fmt.Sprintf("🔊 Playback: callback=%d, buffer=%d/%d\n",
-					out.callbackCount, len(out.frames), cap(out.frames))
-				fmt.Print(msg)
-				if out.debugLog != nil {
-					fmt.Fprint(out.debugLog, msg)
-					out.debugLog.Sync()
-				}
-			}
-		default:
-			// No frame available, output silence
+		// BLOCKING read - wait for audio data instead of immediately falling back to silence
+		// This prevents spurious underruns from select+default race conditions
+		frame, ok := <-out.frames
+		if !ok {
+			// Channel closed, output silence
 			for i := range pOutputSample {
 				pOutputSample[i] = 0
 			}
+			return
+		}
 
-			// Log buffer underrun periodically
-			if out.callbackCount%50 == 0 {
-				msg := fmt.Sprintf("⚠️  Playback underrun: callback=%d, buffer empty (expected framecount=%d)\n",
-					out.callbackCount, framecount)
-				fmt.Print(msg)
-				if out.debugLog != nil {
-					fmt.Fprint(out.debugLog, msg)
-					out.debugLog.Sync()
-				}
+		out.framesConsumed++
+		// Ensure we copy the right amount of data
+		if len(frame) >= expectedBytes {
+			copy(pOutputSample, frame[:expectedBytes])
+		} else {
+			// Frame too small, copy what we have and pad with silence
+			copy(pOutputSample, frame)
+			for i := len(frame); i < expectedBytes; i++ {
+				pOutputSample[i] = 0
+			}
+		}
+
+		// Log every 250 callbacks (every ~5 seconds)
+		if out.callbackCount%250 == 0 {
+			msg := fmt.Sprintf("🔊 Playback: callback=%d, buffer=%d/%d\n",
+				out.callbackCount, len(out.frames), cap(out.frames))
+			fmt.Print(msg)
+			if out.debugLog != nil {
+				fmt.Fprint(out.debugLog, msg)
+				out.debugLog.Sync()
 			}
 		}
 	}
