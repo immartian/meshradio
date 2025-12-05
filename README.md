@@ -82,7 +82,7 @@ cd meshradio
 **Or use the Web GUI:**
 ```bash
 ./meshradio --gui --callsign YOUR-CALLSIGN
-# Open http://localhost:8080 in your browser
+# Open http://localhost:8899 in your browser
 ```
 
 ---
@@ -117,7 +117,7 @@ cd meshradio
 ###  Web GUI (Easiest)
 
 ```bash
-./meshradio --gui --callsign DJ-AWESOME --web-port 8080
+./meshradio --gui --callsign DJ-AWESOME --web-port 8899
 ```
 
 **Features:**
@@ -129,7 +129,7 @@ cd meshradio
 
 **Options:**
 - `--port 8799` - Audio port for RTP streaming (default: 8799)
-- `--web-port 8080` - HTTP port for web interface (default: 8080)
+- `--web-port 8899` - HTTP port for web interface (default: 8899)
 - `--callsign NAME` - Your station callsign
 
 ###  Terminal UI
