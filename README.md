@@ -6,120 +6,271 @@ Decentralized radio broadcasting over Yggdrasil mesh network.
 
 MeshRadio brings HAM radio-style broadcasting to the Yggdrasil mesh network. Use IPv6 addresses as "frequencies" to broadcast and listen to audio streams across the mesh.
 
-**Architecture:** Subscription-based unicast streaming. Listeners "tune" to a broadcaster's IPv6:port, establishing a direct connection. No multicast required.
+**Architecture:** Subscription-based unicast streaming. Listeners "tune" to a broadcaster's IPv6:port, establishing a direct connection. The system uses Opus compression for high-quality audio at efficient bitrates.
 
-## Features (v0.4-alpha MVP)
+## Current Status: v0.3-alpha
 
-- **Broadcast** audio from your microphone to your Yggdrasil IPv6
-- **Listen** to stations by dialing their IPv6:port (subscription-based)
-- **Listener tracking** - broadcasters see who's tuned in
-- **Automatic heartbeat** - connections maintained automatically
-- **Cross-platform** terminal UI and Web GUI
-- **Real audio** - PortAudio capture + Opus codec encoding
+**STABLE MUSIC STREAMING ACHIEVED**
+
+Recent development has delivered stable, continuous music broadcasting with the following improvements:
+- Smooth, jitter-free audio playback
+- Continuous streaming without interruption
+- Playlist cycling support
+- High-quality Opus compression (12-13x, 128kbps)
+
+The system has been tested with multi-hour broadcasts of 93-song playlists with excellent stability.
+
+## Features
+
+### Working Now
+- **Music Broadcasting** - Stream MP3 files from your music library
+- **Playlist Management** - Automatic cycling through your music collection
+- **High-Quality Audio** - Opus codec at 128kbps for music quality
+- **Subscription System** - Listeners subscribe to broadcasters with automatic heartbeats
+- **Emergency Priority** - Priority levels for critical broadcasts
+- **Web GUI** - Browser-based station management interface
+- **Cross-platform** - Linux, macOS, Windows support
+
+### In Development
+- Voice broadcasting (microphone input)
+- Multi-listener stress testing
+- Station discovery and browsing
+- Enhanced metadata (now playing, artist info)
 
 ## Prerequisites
 
-1. **Yggdrasil** must be installed and running
-   - Install from: https://yggdrasil-network.github.io/
-   - Ensure you're connected to at least one peer
+1. **Go 1.21 or later**
+   ```bash
+   go version  # Should be 1.21+
+   ```
 
-2. **PortAudio** library
+2. **FFmpeg** (for MP3 decoding)
    ```bash
    # macOS
-   brew install portaudio
+   brew install ffmpeg
 
    # Ubuntu/Debian
-   sudo apt-get install portaudio19-dev
+   sudo apt-get install ffmpeg
 
    # Fedora
-   sudo dnf install portaudio-devel
+   sudo dnf install ffmpeg
 
    # Arch
-   sudo pacman -S portaudio
+   sudo pacman -S ffmpeg
    ```
+
+3. **Yggdrasil** (optional - works on localhost for testing)
+   - Install from: https://yggdrasil-network.github.io/
+   - For production use over mesh networks
 
 ## Installation
 
-```bash
-go install github.com/meshradio/meshradio@latest
-```
+### Build from Source
 
-Or build from source:
 ```bash
-git clone https://github.com/meshradio/meshradio
+git clone https://github.com/immartian/meshradio
 cd meshradio
 go build -o meshradio ./cmd/meshradio
 ```
 
 ## Quick Start
 
-### 1. Check your Yggdrasil IPv6
-```bash
-yggdrasilctl getSelf
-```
-
-### 2. Start MeshRadio
-```bash
-meshradio
-```
-
-### 3. Broadcast
-- Press `b` to enter broadcast mode
-- Select your microphone
-- Share your IPv6:port with listeners (e.g., `201:abcd:1234::1:8799`)
-- See connected listeners in real-time
-
-### 4. Listen
-- Press `l` to enter listen mode
-- Enter the broadcaster's IPv6:port (get this from the broadcaster)
-- Your listener automatically subscribes and sends heartbeats
-- Enjoy the stream!
-
-## Usage
+### Option 1: Interactive Menu (Recommended)
 
 ```bash
-# Interactive TUI mode (default)
-meshradio
-
-# Broadcast mode (headless)
-meshradio broadcast --ipv6 <your-ipv6>
-
-# Listen mode (headless)
-meshradio listen --ipv6 <station-ipv6>
-
-# Show your IPv6
-meshradio info
+./meshradio
 ```
+
+Select from the menu:
+1. Music Broadcaster - Scan and broadcast MP3 files
+2. Voice Broadcaster - Broadcast from microphone (experimental)
+3. Listener - Listen to broadcasts
+4. Emergency Test - Test emergency priorities
+5. Discovery Test - Test mDNS service discovery
+6. Integration Test - Full two-node test
+
+### Option 2: Web GUI
+
+```bash
+./meshradio --gui
+```
+
+Then open http://localhost:8799 in your browser.
+
+### Testing Locally (No Yggdrasil Required)
+
+For testing, the system works on localhost (::1):
+
+**Terminal 1 - Broadcaster:**
+```bash
+./meshradio
+# Select "1" for Music Broadcaster
+# Choose your music directory
+```
+
+**Terminal 2 - Listener:**
+```bash
+./meshradio
+# Select "3" for Listener
+# Enter IPv6: ::1
+# Enter port: 8799
+```
+
+### Broadcasting Over Yggdrasil
+
+1. Check your Yggdrasil IPv6:
+   ```bash
+   yggdrasilctl getSelf
+   ```
+
+2. Start broadcaster with your Yggdrasil address
+
+3. Share your IPv6:port with listeners (e.g., `200:1234:5678::1:8799`)
+
+## Technical Details
+
+### Audio Pipeline
+
+**Broadcaster:**
+```
+MP3 File → FFmpeg Decoder → PCM Audio → Opus Encoder → UDP Packets → Network
+```
+
+**Listener:**
+```
+Network → UDP Packets → Opus Decoder → PCM Audio → Audio Device (Speakers)
+```
+
+### Performance Characteristics
+
+- **Compression**: 12-13x (3840 bytes → ~300 bytes per frame)
+- **Frame Size**: 20ms @ 48kHz stereo
+- **Bitrate**: 128kbps for music quality
+- **Buffer**: 3 seconds (150 frames) for jitter tolerance
+- **Transport**: UDP over IPv6
+- **Codec**: Opus (RFC 6716)
+
+### Network Architecture
+
+- **Protocol**: Custom protocol over UDP
+- **Addressing**: IPv6 (Yggdrasil or localhost)
+- **Delivery**: Unicast fan-out (broadcaster sends to each subscriber)
+- **Reliability**: Heartbeat mechanism (5s interval)
+- **Subscription**: Explicit subscribe/unsubscribe packets
+
+## Recent Fixes (v0.3-alpha)
+
+### Audio Stability Improvements
+- Fixed audio callback race condition causing spurious underruns
+- Implemented ticker-based packet pacing (exactly 20ms intervals)
+- Changed audio callback to use 5ms timeout instead of immediate fallback
+- Increased buffer from 50 to 150 frames for better jitter tolerance
+
+### Playlist Management
+- Removed infinite loop to allow proper playlist cycling
+- Songs now advance automatically when finished
+- Playlist loops back to start after last track
+
+### Performance Tuning
+- Reduced logging verbosity (5-second intervals)
+- Added diagnostic logging for network troubleshooting
+- Optimized FFmpeg realtime decoding with `-re` flag
 
 ## Architecture
 
 See [DESIGN.md](DESIGN.md) for full technical specification.
 
+## Command Line Options
+
+```bash
+# Interactive TUI mode (default)
+./meshradio
+
+# Web GUI mode
+./meshradio --gui
+
+# Show version
+./meshradio --version
+
+# Get help
+./meshradio --help
+```
+
+## Troubleshooting
+
+### Audio playback stops after 1-2 minutes
+**Status**: Fixed in v0.3-alpha. Update to latest version.
+
+### No audio output
+- Check audio device permissions
+- Verify FFmpeg is installed: `ffmpeg -version`
+- Check audio buffer isn't full (should see "buffer=X/150" in logs)
+
+### Can't connect to broadcaster
+- Verify IPv6 address is correct
+- Check firewall allows UDP traffic
+- Test on localhost first (::1)
+- Ensure Yggdrasil is running (for mesh networking)
+
+### High memory usage
+- Normal buffer usage: ~50MB for 150-frame buffer
+- Check for memory leaks if usage grows continuously
+- Monitor with: `ps aux | grep meshradio`
+
 ## Development Status
 
-**Current**: v0.4-alpha (Subscription-based MVP)
-- ✅ Subscription-based streaming (unicast over Yggdrasil)
-- ✅ Listener tracking with heartbeats
-- ✅ Real audio (PortAudio + Opus)
-- ✅ Terminal UI and Web GUI
-- ⏳ Station discovery (manual OOB for MVP)
-- ⏳ DHT registry (future)
-- ⏳ Scanning (future)
+**v0.3-alpha (Current)**
+- Stable MP3 broadcasting
+- Playlist support
+- Web GUI
+- Emergency priority system
+- Subscription/heartbeat mechanism
+
+**v0.4 (Planned)**
+- Multi-listener stress testing
+- Station discovery (mDNS/DHT)
+- Voice broadcasting refinement
+- Metadata broadcasting (now playing, artist)
+- Recording/time-shifting
+- Mobile clients
 
 ## Contributing
 
-MeshRadio is open source! Contributions welcome.
+MeshRadio is open source and welcomes contributions!
+
+### Areas Needing Help
+- Testing on real mesh networks
+- Multi-listener scalability testing
+- Documentation improvements
+- UI/UX enhancements
+- Audio quality optimization
+
+### Getting Started
+1. Read [DESIGN.md](DESIGN.md) for architecture overview
+2. Check GitHub Issues for open tasks
+3. Submit PRs with clear descriptions
+4. Report bugs with detailed reproduction steps
 
 ## License
 
 GPL-3.0 License - see LICENSE file
 
-## Community
+## Links
 
-- Documentation: [DESIGN.md](DESIGN.md)
-- Issues: GitHub Issues
-- Discussions: GitHub Discussions
+- **Repository**: https://github.com/immartian/meshradio
+- **Issues**: https://github.com/immartian/meshradio/issues
+- **Discussions**: https://github.com/immartian/meshradio/discussions
+- **Documentation**: [DESIGN.md](DESIGN.md)
+
+## Credits
+
+Built with:
+- Yggdrasil Network (mesh networking)
+- Opus Codec (audio compression)
+- FFmpeg (media decoding)
+- Malgo (audio I/O)
+- Go (implementation language)
 
 ---
 
-**Note**: This is alpha software. Expect bugs and breaking changes.
+**Note**: This is alpha software under active development. Expect bugs and breaking changes. Feedback and testing reports are highly appreciated!
