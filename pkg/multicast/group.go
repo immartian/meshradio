@@ -12,7 +12,10 @@ import (
 func makeSubscriberKey(ipv6 net.IP, port int) string {
 	// Convert to 16-byte canonical form and use hex to ensure consistency
 	ipBytes := ipv6.To16()
-	return fmt.Sprintf("%x:%d", ipBytes, port)
+	key := fmt.Sprintf("%x:%d", ipBytes, port)
+	fmt.Printf("DEBUG: makeSubscriberKey: IP=%s, len(ipBytes)=%d, first4=%x, key=%s\n",
+		ipv6.String(), len(ipBytes), ipBytes[:4], key)
+	return key
 }
 
 // NewGroup creates a new multicast group
