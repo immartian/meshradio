@@ -369,20 +369,14 @@ func (b *Broadcaster) handleHeartbeat(packet *protocol.Packet) {
 	// (listener might be subscribed to multiple groups)
 	for _, group := range b.subManager.ListGroups() {
 		subs := b.subManager.GetSubscribers(group)
-		fmt.Printf("DEBUG: Heartbeat from %s, checking %d subscribers in group %s\n", listenerIP, len(subs), group)
 		for _, sub := range subs {
-			fmt.Printf("DEBUG: Comparing heartbeat IP '%s' with subscriber IP '%s', Equal=%v\n",
-				listenerIP.String(), sub.IPv6.String(), sub.IPv6.Equal(listenerIP))
 			if sub.IPv6.Equal(listenerIP) {
-				fmt.Printf("DEBUG: Match found! Calling Heartbeat(%s, %s, %d)\n", group, listenerIP, sub.Port)
 				err := b.subManager.Heartbeat(group, listenerIP, sub.Port)
-				fmt.Printf("DEBUG: Heartbeat() returned: err=%v\n", err)
 				if err != nil {
 					fmt.Printf("⚠️  Failed to update heartbeat for %s:%d in group %s: %v\n",
 						listenerIP, sub.Port, group, err)
 				} else {
 					updated = true
-					fmt.Printf("✅ Updated heartbeat for %s:%d in group %s\n", listenerIP, sub.Port, group)
 				}
 			}
 		}

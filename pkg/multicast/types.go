@@ -44,13 +44,15 @@ type UnsubscribeRequest struct {
 }
 
 // GetKey returns a unique key for a subscriber (IPv6:port)
+// Uses hex representation to ensure consistency across different IPv6 string formats
 func (s *Subscriber) GetKey() string {
-	return net.JoinHostPort(s.IPv6.String(), fmt.Sprintf("%d", s.Port))
+	return fmt.Sprintf("%x:%d", s.IPv6.To16(), s.Port)
 }
 
 // GetKey returns a unique key for a broadcaster (IPv6)
+// Uses hex representation to ensure consistency across different IPv6 string formats
 func (b *Broadcaster) GetKey() string {
-	return b.IPv6.String()
+	return fmt.Sprintf("%x", b.IPv6.To16())
 }
 
 // IsRegularMulticast returns true if this is a regular multicast subscription
