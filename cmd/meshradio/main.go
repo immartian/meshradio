@@ -17,6 +17,7 @@ func main() {
 	// Parse command line flags
 	guiMode := flag.Bool("gui", false, "Launch web GUI instead of TUI")
 	port := flag.Int("port", 8799, "Port for audio broadcast/listen (default: 8799)")
+	webPort := flag.Int("web-port", 8080, "Port for web GUI (default: 8080, only used with --gui)")
 	callsign := flag.String("callsign", "", "Station callsign (or use MESHRADIO_CALLSIGN env var)")
 	flag.Parse()
 
@@ -28,7 +29,7 @@ func main() {
 
 	// Launch appropriate interface
 	if *guiMode {
-		runGUI(stationCallsign, localIPv6, *port)
+		runGUI(stationCallsign, localIPv6, *port, *webPort)
 	} else {
 		runTUI(stationCallsign, localIPv6, *port)
 	}
@@ -45,16 +46,18 @@ func runTUI(callsign string, ipv6 net.IP, port int) {
 	}
 }
 
-func runGUI(callsign string, ipv6 net.IP, port int) {
+func runGUI(callsign string, ipv6 net.IP, audioPort int, webPort int) {
 	// Print startup info
 	fmt.Printf("🚀 Starting MeshRadio Web GUI\n\n")
 	fmt.Printf("Callsign: %s\n", callsign)
-	fmt.Printf("IPv6: %s\n\n", ipv6.String())
-	fmt.Printf("🌐 Web GUI: http://localhost:%d\n", port)
+	fmt.Printf("IPv6: %s\n", ipv6.String())
+	fmt.Printf("Audio Port: %d\n\n", audioPort)
+	fmt.Printf("🌐 Web GUI: http://localhost:%d\n", webPort)
 	fmt.Printf("📱 Open in your browser to control MeshRadio\n\n")
 
 	// Create and start GUI server
-	server := gui.NewServer(port, callsign, ipv6)
+	server := gui.NewServer(webPort, callsign, ipv6)
+	server.SetAudioPort(audioPort)
 
 	if err := server.Start(); err != nil {
 		log.Fatal(err)

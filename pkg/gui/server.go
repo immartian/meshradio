@@ -28,7 +28,8 @@ var upgrader = websocket.Upgrader{
 
 // Server manages the web GUI
 type Server struct {
-	port        int
+	webPort     int
+	audioPort   int
 	callsign    string
 	ipv6        net.IP
 	broadcaster *broadcaster.Broadcaster
@@ -50,14 +51,20 @@ type StatusUpdate struct {
 }
 
 // NewServer creates a new web GUI server
-func NewServer(port int, callsign string, ipv6 net.IP) *Server {
+func NewServer(webPort int, callsign string, ipv6 net.IP) *Server {
 	return &Server{
-		port:      port,
+		webPort:   webPort,
+		audioPort: 8799, // Default audio port
 		callsign:  callsign,
 		ipv6:      ipv6,
 		clients:   make(map[*websocket.Conn]bool),
 		broadcast: make(chan StatusUpdate, 10),
 	}
+}
+
+// SetAudioPort sets the audio port for broadcasting/listening
+func (s *Server) SetAudioPort(port int) {
+	s.audioPort = port
 }
 
 // Start starts the web server
@@ -79,8 +86,8 @@ func (s *Server) Start() error {
 	// Start status broadcaster
 	go s.statusBroadcaster()
 
-	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("🌐 Web GUI available at http://localhost:%d", s.port)
+	addr := fmt.Sprintf(":%d", s.webPort)
+	log.Printf("🌐 Web GUI available at http://localhost:%d", s.webPort)
 
 	return http.ListenAndServe(addr, nil)
 }
@@ -178,7 +185,7 @@ func (s *Server) handleBroadcastStart(w http.ResponseWriter, r *http.Request) {
 	cfg := broadcaster.Config{
 		Callsign:    s.callsign,
 		IPv6:        s.ipv6,
-		Port:        s.port, // Use the port from command-line --port flag
+		Port:        s.audioPort,
 		Group:       "default", // TODO: Allow user to select group via API
 		AudioConfig: audio.DefaultConfig(),
 	}
@@ -239,8 +246,8 @@ func (s *Server) handleListenStart(w http.ResponseWriter, r *http.Request) {
 		Callsign:    s.callsign,
 		LocalIPv6:   s.ipv6,
 		TargetIPv6:  targetIPv6,
-		TargetPort:  8799, // 799 ~ Ygg (broadcaster port)
-		LocalPort:   s.port, // Use the port from command-line --port flag
+		TargetPort:  s.audioPort,
+		LocalPort:   s.audioPort,
 		Group:       "default", // TODO: Allow user to select group via API
 		SSMSource:   nil, // Regular multicast (receive from all sources)
 		AudioConfig: audio.DefaultConfig(),
