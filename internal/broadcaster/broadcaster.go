@@ -186,8 +186,6 @@ func (b *Broadcaster) broadcastLoop() {
 	var ipv6Bytes [16]byte
 	copy(ipv6Bytes[:], b.ipv6.To16())
 
-	fmt.Println("Broadcast loop started")
-
 	// Calculate frame duration for pacing
 	frameDuration := time.Duration(b.config.FrameSize) * time.Second / time.Duration(b.config.SampleRate)
 	fmt.Printf("Broadcaster: frame duration = %v (paced sending)\n", frameDuration)
@@ -204,16 +202,11 @@ func (b *Broadcaster) broadcastLoop() {
 			// Send one frame per tick (paced at realtime rate)
 		}
 
-		// Debug: log every 10 frames to see if loop continues
-		if b.seqNum%10 == 0 {
-			fmt.Printf("DEBUG: Broadcast loop iteration, seqNum=%d\n", b.seqNum)
-		}
-
 		// Read audio frame (as int16 samples)
 		samples, err := b.audioSource.Read()
 
 		if err != nil {
-			if b.seqNum%50 == 0 { // Log periodically
+			if b.seqNum%250 == 0 { // Log errors less frequently
 				fmt.Printf("Audio source read error: %v\n", err)
 			}
 			continue
@@ -257,42 +250,25 @@ func (b *Broadcaster) broadcastLoop() {
 		// Get subscribers for this broadcaster (using multicast overlay)
 		subscribers := b.subManager.GetSubscribersForSource(b.group, b.ipv6)
 
-		// Debug: Log subscriber count every frame for first 10 frames after subscription
-		if b.seqNum < 100 || (b.seqNum%50 == 0 && len(subscribers) == 0) {
-			allSubs := b.subManager.GetSubscribers(b.group)
-			if len(subscribers) == 0 && len(allSubs) > 0 {
-				fmt.Printf("⚠️  DEBUG seq=%d: GetSubscribersForSource returned 0, but GetSubscribers=%d\n",
-					b.seqNum, len(allSubs))
-				for _, sub := range allSubs {
-					fmt.Printf("  - Subscriber: %s:%d, SSMSource=%v, MatchesSource(%s)=%v\n",
-						sub.IPv6, sub.Port, sub.SSMSource, b.ipv6, sub.MatchesSource(b.ipv6))
-				}
-			} else if len(subscribers) > 0 {
-				fmt.Printf("✅ DEBUG seq=%d: Sending to %d subscriber(s)\n", b.seqNum, len(subscribers))
-			}
-		}
-
 		// Send to all subscribed listeners (unicast fan-out)
 		for _, sub := range subscribers {
 			err = b.transport.Send(packet, sub.IPv6, sub.Port)
-			if err != nil && b.seqNum%100 == 0 {
+			if err != nil && b.seqNum%250 == 0 {
 				fmt.Printf("Send error to %s: %v\n", sub.Callsign, err)
 			}
 		}
 
-		listenerCount := len(subscribers)
-
-		// Log periodically
-		if b.seqNum%50 == 0 { // Log every 50 frames (~1 second)
-			fmt.Printf("Broadcasting: seq=%d, size=%d bytes to %d listeners (group='%s')\n",
-				packet.SequenceNum, len(encoded), listenerCount, b.group)
+		// Log periodically (every 5 seconds at 50fps)
+		if b.seqNum%250 == 0 {
+			listenerCount := len(subscribers)
+			fmt.Printf("Broadcasting: seq=%d, %d listeners (group='%s')\n",
+				packet.SequenceNum, listenerCount, b.group)
 		}
 	}
 }
 
 // subscriptionLoop handles incoming SUBSCRIBE and HEARTBEAT packets
 func (b *Broadcaster) subscriptionLoop() {
-	fmt.Println("Subscription loop started")
 	for {
 		select {
 		case <-b.stopChan:
@@ -322,13 +298,11 @@ func (b *Broadcaster) subscriptionLoop() {
 
 // handleSubscribe processes a subscription request
 func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
-	fmt.Println("Processing SUBSCRIBE packet...")
 	sub, err := protocol.UnmarshalSubscribe(packet.Payload)
 	if err != nil {
 		fmt.Printf("Invalid subscribe packet: %v\n", err)
 		return
 	}
-	fmt.Printf("Unmarshalled subscribe: listener=%s port=%d\n", protocol.BytesToIPv6(sub.ListenerIPv6), sub.ListenerPort)
 
 	listenerIP := protocol.BytesToIPv6(sub.ListenerIPv6)
 	callsign := protocol.GetCallsignString(sub.Callsign)
@@ -338,7 +312,6 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	if group == "" {
 		group = b.group
 	}
-	fmt.Printf("Requested group='%s', broadcaster group='%s'\n", group, b.group)
 
 	// Extract SSM source (nil = regular multicast)
 	var ssmSource net.IP
@@ -356,19 +329,17 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	}
 
 	// Add to subscription manager
-	fmt.Printf("Adding subscriber to group '%s'...\n", group)
 	b.subManager.Subscribe(multicast.SubscribeRequest{
 		Group:      group,
 		Subscriber: subscriber,
 	})
-	fmt.Printf("Subscriber added. Total subscribers in group '%s': %d\n", group, len(b.subManager.GetSubscribers(group)))
 
 	multicastType := "Regular"
 	if subscriber.IsSSM() {
 		multicastType = fmt.Sprintf("SSM (source=%s)", ssmSource)
 	}
-	fmt.Printf("New subscriber: %s (%s) [%s] to group '%s'\n",
-		callsign, listenerIP, multicastType, group)
+	fmt.Printf("✅ New subscriber: %s [%s] to group '%s' (total: %d)\n",
+		callsign, multicastType, group, len(b.subManager.GetSubscribers(group)))
 
 	// Legacy: Also update old listeners map for backward compatibility
 	listenerKey := fmt.Sprintf("%s:%d", listenerIP.String(), sub.ListenerPort)

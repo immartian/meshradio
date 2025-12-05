@@ -163,8 +163,6 @@ func (l *Listener) Stop() error {
 
 // receiveLoop continuously receives and plays audio packets
 func (l *Listener) receiveLoop() {
-	fmt.Println("Receive loop started")
-
 	for {
 		select {
 		case <-l.stopChan:
@@ -202,15 +200,10 @@ func (l *Listener) receiveLoop() {
 
 // decodeWorker processes audio packets from the decode queue
 // Runs in a single goroutine to ensure thread-safe codec access and packet ordering
-// Simply processes packets as they arrive without artificial rate limiting
 func (l *Listener) decodeWorker() {
-	fmt.Println("Decode worker started - processing packets naturally")
-
 	for packet := range l.decodeQueue {
 		l.handleAudioPacket(packet)
 	}
-
-	fmt.Println("Decode worker stopped")
 }
 
 // handleAudioPacket processes an audio packet
@@ -244,8 +237,8 @@ func (l *Listener) handleAudioPacket(packet *protocol.Packet) {
 	// Play audio
 	l.audioOut.Write(pcm)
 
-	// Log periodically with priority indicator
-	if count%50 == 0 {
+	// Log periodically (every 5 seconds at 50fps)
+	if count%250 == 0 {
 		priorityStr := ""
 		if priority > 0 {
 			p := emergency.Priority(priority)

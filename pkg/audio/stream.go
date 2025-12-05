@@ -159,7 +159,6 @@ func (out *OutputStream) Start() error {
 		return fmt.Errorf("failed to initialize audio context: %w", err)
 	}
 	out.ctx = ctx
-	fmt.Printf("🎵 Malgo context initialized\n")
 
 	// Configure playback device
 	deviceConfig := malgo.DefaultDeviceConfig(malgo.Playback)
@@ -170,23 +169,9 @@ func (out *OutputStream) Start() error {
 	deviceConfig.Periods = 4 // 4 periods for smoother playback
 	deviceConfig.Alsa.NoMMap = 1
 
-	fmt.Printf("🎵 Device config: sampleRate=%d, channels=%d, periodSize=%d, periods=%d\n",
-		deviceConfig.SampleRate, deviceConfig.Playback.Channels,
-		deviceConfig.PeriodSizeInFrames, deviceConfig.Periods)
-
 	// Data callback - called when device needs audio data
 	onRecvFrames := func(pOutputSample, pInputSamples []byte, framecount uint32) {
 		out.callbackCount++
-
-		// Log first callback to confirm it's being invoked
-		if out.callbackCount == 1 {
-			msg := fmt.Sprintf("🎯 First playback callback! framecount=%d, outputSize=%d\n", framecount, len(pOutputSample))
-			fmt.Print(msg)
-			if out.debugLog != nil {
-				fmt.Fprint(out.debugLog, msg)
-				out.debugLog.Sync()
-			}
-		}
 
 		// Calculate expected bytes (framecount is frames, not samples)
 		expectedBytes := int(framecount) * out.config.Channels * 2 // 2 bytes per sample (int16)
@@ -205,10 +190,10 @@ func (out *OutputStream) Start() error {
 				}
 			}
 
-			// Log every 10 callbacks for more frequent feedback
-			if out.callbackCount%10 == 0 {
-				msg := fmt.Sprintf("🔊 Playback: callback=%d, consumed=%d, buffer=%d/%d, framecount=%d, frameSize=%d, expected=%d\n",
-					out.callbackCount, out.framesConsumed, len(out.frames), cap(out.frames), framecount, len(frame), expectedBytes)
+			// Log every 250 callbacks (every ~5 seconds)
+			if out.callbackCount%250 == 0 {
+				msg := fmt.Sprintf("🔊 Playback: callback=%d, buffer=%d/%d\n",
+					out.callbackCount, len(out.frames), cap(out.frames))
 				fmt.Print(msg)
 				if out.debugLog != nil {
 					fmt.Fprint(out.debugLog, msg)
@@ -243,10 +228,8 @@ func (out *OutputStream) Start() error {
 		return fmt.Errorf("failed to initialize playback device: %w", err)
 	}
 	out.device = device
-	fmt.Printf("🎵 Malgo device initialized\n")
 
 	// Start the device
-	fmt.Printf("🎵 Starting malgo device...\n")
 	if err := device.Start(); err != nil {
 		device.Uninit()
 		ctx.Uninit()
@@ -254,9 +237,8 @@ func (out *OutputStream) Start() error {
 	}
 
 	out.running = true
-	fmt.Printf("🔊 Audio playback started (%d Hz, %d channels, format=S16)\n",
+	fmt.Printf("🔊 Audio playback started (%d Hz, %d channels)\n",
 		out.config.SampleRate, out.config.Channels)
-	fmt.Printf("🎵 Waiting for first callback from malgo...\n")
 	return nil
 }
 
@@ -294,14 +276,6 @@ func (out *OutputStream) Stop() {
 
 // Write queues an audio frame for playback
 func (out *OutputStream) Write(frame []byte) error {
-	// Log write operations to debug file
-	if out.debugLog != nil && out.callbackCount > 0 && out.callbackCount < 200 {
-		// Log first 200 writes to correlate with callbacks
-		fmt.Fprintf(out.debugLog, "Write: frame size=%d, buffer=%d/%d, callbacks=%d\n",
-			len(frame), len(out.frames), cap(out.frames), out.callbackCount)
-		out.debugLog.Sync()
-	}
-
 	select {
 	case out.frames <- frame:
 		return nil
