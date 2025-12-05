@@ -79,11 +79,13 @@ cd meshradio
 # Enter port: 8799
 ```
 
-**Or use the Web GUI:**
+**Or use the Web GUI (port 8899):**
 ```bash
 ./meshradio --gui --callsign YOUR-CALLSIGN
-# Open http://localhost:8899 in your browser
 ```
+Then open **http://localhost:8899** in your browser.
+
+![MeshRadio Web GUI](screenshots/webui.png)
 
 ---
 
