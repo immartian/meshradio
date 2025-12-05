@@ -1,0 +1,7 @@
+MeshRadio v0.3-alpha: Stable Music Streaming Achieved
+
+We're excited to announce production-quality continuous music broadcasting in MeshRadio v0.3-alpha. After extensive testing with 93-song playlists, we've achieved multi-hour stability with seamless song transitions and reliable listener connections. The Web GUI is now fully functional at port 8899, providing browser-based control with real-time monitoring. Audio quality delivers 48kHz stereo at 128kbps using Opus codec with <100ms latency.
+
+Critical fixes in this release include a shared subscription manager that prevents listeners from disconnecting during song changes, IPv6 key matching improvements for reliable heartbeat processing, ticker-based packet pacing that eliminates audio jitter, and structured logging with automatic rotation. Built for decentralized audio broadcasting over Yggdrasil mesh networks, MeshRadio brings HAM radio-style communication to the internet age without requiring central servers.
+
+Download: https://github.com/immartian/meshradio
