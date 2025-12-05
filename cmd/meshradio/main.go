@@ -17,7 +17,7 @@ func main() {
 	// Parse command line flags
 	guiMode := flag.Bool("gui", false, "Launch web GUI instead of TUI")
 	port := flag.Int("port", 8799, "Port for audio broadcast/listen (default: 8799)")
-	webPort := flag.Int("web-port", 8080, "Port for web GUI (default: 8080, only used with --gui)")
+	webPort := flag.Int("web-port", 8899, "Port for web GUI (default: 8899, only used with --gui)")
 	callsign := flag.String("callsign", "", "Station callsign (or use MESHRADIO_CALLSIGN env var)")
 	flag.Parse()
 
