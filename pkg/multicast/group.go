@@ -12,15 +12,11 @@ import (
 func makeSubscriberKey(ipv6 net.IP, port int) string {
 	// Convert to 16-byte canonical form and use hex to ensure consistency
 	ipBytes := ipv6.To16()
-	key := fmt.Sprintf("%x:%d", ipBytes, port)
-	fmt.Printf("DEBUG: makeSubscriberKey: IP=%s, len(ipBytes)=%d, first4=%x, key=%s\n",
-		ipv6.String(), len(ipBytes), ipBytes[:4], key)
-	return key
+	return fmt.Sprintf("%x:%d", ipBytes, port)
 }
 
 // NewGroup creates a new multicast group
 func NewGroup(name string) *Group {
-	fmt.Printf("DEBUG: NewGroup created: %s\n", name)
 	return &Group{
 		Name:         name,
 		Subscribers:  make(map[string]*Subscriber),
@@ -32,22 +28,18 @@ func NewGroup(name string) *Group {
 func (g *Group) AddSubscriber(sub *Subscriber) {
 	key := makeSubscriberKey(sub.IPv6, sub.Port)
 	g.Subscribers[key] = sub
-	fmt.Printf("DEBUG: AddSubscriber key='%s' for IP=%s port=%d\n", key, sub.IPv6.String(), sub.Port)
 }
 
 // RemoveSubscriber removes a subscriber from the group
 func (g *Group) RemoveSubscriber(ipv6 net.IP, port int) {
 	key := makeSubscriberKey(ipv6, port)
 	delete(g.Subscribers, key)
-	fmt.Printf("DEBUG: RemoveSubscriber key='%s' for IP=%s port=%d\n", key, ipv6.String(), port)
 }
 
 // GetSubscriber retrieves a subscriber by IPv6 and port
 func (g *Group) GetSubscriber(ipv6 net.IP, port int) *Subscriber {
 	key := makeSubscriberKey(ipv6, port)
-	sub := g.Subscribers[key]
-	fmt.Printf("DEBUG: GetSubscriber key='%s' for IP=%s port=%d, found=%v\n", key, ipv6.String(), port, sub != nil)
-	return sub
+	return g.Subscribers[key]
 }
 
 // GetSubscribers returns all subscribers in the group
@@ -111,8 +103,6 @@ func (g *Group) PruneStaleSubscribers(timeout time.Duration) int {
 	for key, sub := range g.Subscribers {
 		age := now.Sub(sub.LastSeen)
 		if age > timeout {
-			fmt.Printf("DEBUG: Pruning subscriber %s (key=%s, age=%v > timeout=%v)\n",
-				sub.Callsign, key, age, timeout)
 			delete(g.Subscribers, key)
 			count++
 		}

@@ -55,7 +55,6 @@ func (sm *SubscriptionManager) Unsubscribe(req UnsubscribeRequest) error {
 
 	// Remove group if empty
 	if group.SubscriberCount() == 0 && group.BroadcasterCount() == 0 {
-		fmt.Printf("DEBUG: Deleting empty group '%s' after Unsubscribe\n", req.Group)
 		delete(sm.groups, req.Group)
 	}
 
@@ -77,9 +76,7 @@ func (sm *SubscriptionManager) Heartbeat(group string, ipv6 net.IP, port int) er
 		return fmt.Errorf("subscriber not found: %s:%d", ipv6, port)
 	}
 
-	oldLastSeen := sub.LastSeen
 	sub.LastSeen = time.Now()
-	fmt.Printf("DEBUG: Heartbeat updated %s (age was %v)\n", sub.Callsign, time.Since(oldLastSeen))
 	return nil
 }
 
@@ -115,12 +112,8 @@ func (sm *SubscriptionManager) RegisterBroadcaster(group string, broadcaster *Br
 	defer sm.mu.Unlock()
 
 	// Create group if it doesn't exist
-	if g, exists := sm.groups[group]; !exists {
-		fmt.Printf("DEBUG: RegisterBroadcaster creating new group '%s' (groups map has %d entries)\n", group, len(sm.groups))
+	if _, exists := sm.groups[group]; !exists {
 		sm.groups[group] = NewGroup(group)
-	} else {
-		fmt.Printf("DEBUG: RegisterBroadcaster found existing group '%s' with %d subscribers, %d broadcasters\n",
-			group, g.SubscriberCount(), g.BroadcasterCount())
 	}
 
 	g := sm.groups[group]
@@ -148,7 +141,6 @@ func (sm *SubscriptionManager) UnregisterBroadcaster(group string, ipv6 net.IP) 
 
 	// Remove group if empty
 	if g.SubscriberCount() == 0 && g.BroadcasterCount() == 0 {
-		fmt.Printf("DEBUG: Deleting empty group '%s' after UnregisterBroadcaster\n", group)
 		delete(sm.groups, group)
 	}
 
@@ -190,7 +182,6 @@ func (sm *SubscriptionManager) DeleteGroup(name string) error {
 		return fmt.Errorf("group not found: %s", name)
 	}
 
-	fmt.Printf("DEBUG: Deleting group '%s' (explicit DeleteGroup call)\n", name)
 	delete(sm.groups, name)
 	return nil
 }

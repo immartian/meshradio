@@ -314,9 +314,6 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	listenerIP := protocol.BytesToIPv6(sub.ListenerIPv6)
 	callsign := protocol.GetCallsignString(sub.Callsign)
 
-	fmt.Printf("DEBUG: handleSubscribe: raw bytes=%x, len=%d, IP.String()=%s, IP.To16()=%x\n",
-		sub.ListenerIPv6[:8], len(sub.ListenerIPv6), listenerIP.String(), listenerIP.To16()[:8])
-
 	// Extract group name (use broadcaster's group if not specified)
 	group := protocol.GetGroupString(sub.Group)
 	if group == "" {
@@ -375,16 +372,11 @@ func (b *Broadcaster) handleHeartbeat(packet *protocol.Packet) {
 	listenerIP := protocol.BytesToIPv6(hb.ListenerIPv6)
 	updated := false
 
-	fmt.Printf("DEBUG: Heartbeat from %s (bytes: %x)\n", listenerIP.String(), listenerIP.To16()[:4])
-
 	// Update heartbeat in subscription manager for all groups
 	// (listener might be subscribed to multiple groups)
 	for _, group := range b.subManager.ListGroups() {
 		subs := b.subManager.GetSubscribers(group)
-		fmt.Printf("DEBUG: Checking %d subscribers in group %s\n", len(subs), group)
 		for _, sub := range subs {
-			fmt.Printf("DEBUG: Comparing: heartbeat IP bytes=%x vs sub IP bytes=%x, Equal=%v\n",
-				listenerIP.To16()[:4], sub.IPv6.To16()[:4], sub.IPv6.Equal(listenerIP))
 			if sub.IPv6.Equal(listenerIP) {
 				err := b.subManager.Heartbeat(group, listenerIP, sub.Port)
 				if err != nil {
