@@ -76,7 +76,9 @@ func (sm *SubscriptionManager) Heartbeat(group string, ipv6 net.IP, port int) er
 		return fmt.Errorf("subscriber not found: %s:%d", ipv6, port)
 	}
 
+	oldLastSeen := sub.LastSeen
 	sub.LastSeen = time.Now()
+	fmt.Printf("DEBUG: Heartbeat updated %s (age was %v)\n", sub.Callsign, time.Since(oldLastSeen))
 	return nil
 }
 

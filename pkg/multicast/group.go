@@ -105,7 +105,10 @@ func (g *Group) PruneStaleSubscribers(timeout time.Duration) int {
 	now := time.Now()
 
 	for key, sub := range g.Subscribers {
-		if now.Sub(sub.LastSeen) > timeout {
+		age := now.Sub(sub.LastSeen)
+		if age > timeout {
+			fmt.Printf("DEBUG: Pruning subscriber %s (key=%s, age=%v > timeout=%v)\n",
+				sub.Callsign, key, age, timeout)
 			delete(g.Subscribers, key)
 			count++
 		}
