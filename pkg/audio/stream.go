@@ -129,7 +129,7 @@ type OutputStream struct {
 func NewOutputStream(config StreamConfig) *OutputStream {
 	return &OutputStream{
 		config:   config,
-		frames:   make(chan []byte, 50), // Larger buffer for jitter
+		frames:   make(chan []byte, 150), // 150 frames = 3 seconds buffer for network jitter
 		stopChan: make(chan struct{}),
 	}
 }
