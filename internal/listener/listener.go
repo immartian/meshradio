@@ -202,9 +202,21 @@ func (l *Listener) receiveLoop() {
 
 // decodeWorker processes audio packets from the decode queue
 // Runs in a single goroutine to ensure thread-safe codec access and packet ordering
+// Rate-limits to realtime playback speed to prevent buffer flooding
 func (l *Listener) decodeWorker() {
 	fmt.Println("Decode worker started")
+
+	// Calculate frame duration: frameSize samples / sampleRate = seconds
+	// 960 samples / 48000 Hz = 0.02 seconds = 20ms
+	frameDuration := time.Duration(l.config.FrameSize) * time.Second / time.Duration(l.config.SampleRate)
+	fmt.Printf("Decode worker: frame duration = %v (rate-limited to realtime)\n", frameDuration)
+
+	ticker := time.NewTicker(frameDuration)
+	defer ticker.Stop()
+
 	for packet := range l.decodeQueue {
+		// Wait for next frame time (rate-limit to realtime playback speed)
+		<-ticker.C
 		l.handleAudioPacket(packet)
 	}
 	fmt.Println("Decode worker stopped")
