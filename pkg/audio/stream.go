@@ -254,15 +254,34 @@ func (out *OutputStream) Stop() {
 		return
 	}
 
-	// Stop and clean up audio device
-	if out.device != nil {
-		out.device.Uninit()
-		out.device = nil
-	}
+	// Mark as not running first to prevent new operations
+	out.running = false
 
-	if out.ctx != nil {
-		out.ctx.Uninit()
-		out.ctx = nil
+	// Close stop channel to signal goroutines
+	close(out.stopChan)
+
+	// Stop and clean up audio device with timeout to prevent hanging
+	if out.device != nil || out.ctx != nil {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			if out.device != nil {
+				out.device.Uninit()
+				out.device = nil
+			}
+			if out.ctx != nil {
+				out.ctx.Uninit()
+				out.ctx = nil
+			}
+		}()
+
+		// Wait for cleanup with 1 second timeout
+		select {
+		case <-done:
+			// Cleanup completed
+		case <-time.After(1 * time.Second):
+			fmt.Println("Warning: Audio device cleanup timed out")
+		}
 	}
 
 	// Close debug log
@@ -272,9 +291,7 @@ func (out *OutputStream) Stop() {
 		out.debugLog = nil
 	}
 
-	close(out.stopChan)
-	out.running = false
-	fmt.Println("🔇 Audio playback stopped")
+	fmt.Println("Audio playback stopped")
 }
 
 // Write queues an audio frame for playback
