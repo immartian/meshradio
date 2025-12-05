@@ -1,4 +1,4 @@
-# 📻 MeshRadio
+#  MeshRadio
 
 > **Decentralized Voice Broadcasting over Yggdrasil Mesh Network**
 
@@ -15,33 +15,33 @@
  ╚═╝     ╚═╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ╚═╝ ╚═════╝
 ```
 
-## 🌟 What is MeshRadio?
+##  What is MeshRadio?
 
 MeshRadio brings HAM radio-style broadcasting to the **Yggdrasil mesh network**. Use IPv6 addresses as "frequencies" to broadcast and listen to audio streams across the mesh - no central servers required!
 
 **Think of it as:**
-- Your own decentralized radio station 📡
-- Peer-to-peer audio streaming 🎙️
-- HAM radio for the internet age 📻
+- Your own decentralized radio station 
+- Peer-to-peer audio streaming 
+- HAM radio for the internet age 
 
 ---
 
-## ✨ Current Status: v0.3-alpha
+##  Current Status: v0.3-alpha
 
-### 🎉 STABLE MUSIC STREAMING ACHIEVED!
+###  STABLE MUSIC STREAMING ACHIEVED!
 
 Recent development has delivered **production-quality continuous music broadcasting**:
 
-- ✅ **Smooth, jitter-free audio** - Ticker-based packet pacing eliminates bursts
-- ✅ **Multi-hour stability** - Tested with 93-song playlists without interruption
-- ✅ **Seamless song transitions** - Shared subscription manager keeps listeners connected
-- ✅ **High-quality compression** - Opus codec at 128kbps (12-13x compression)
-- ✅ **Web GUI** - Browser-based control interface with real-time monitoring
-- ✅ **Playlist looping** - Automatic cycling through your music collection
+-  **Smooth, jitter-free audio** - Ticker-based packet pacing eliminates bursts
+-  **Multi-hour stability** - Tested with 93-song playlists without interruption
+-  **Seamless song transitions** - Shared subscription manager keeps listeners connected
+-  **High-quality compression** - Opus codec at 128kbps (12-13x compression)
+-  **Web GUI** - Browser-based control interface with real-time monitoring
+-  **Playlist looping** - Automatic cycling through your music collection
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 
@@ -64,7 +64,7 @@ cd meshradio
 ./build.sh
 ```
 
-### Test It Out! 🎵
+### Test It Out! 
 
 **Terminal 1 - Start Music Broadcaster:**
 ```bash
@@ -87,22 +87,22 @@ cd meshradio
 
 ---
 
-## 📋 Features
+##  Features
 
-### ✅ Working Now
+###  Working Now
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| 🎵 **Music Broadcasting** | Stream MP3 files from your music library | ✅ Stable |
-| 🎧 **Listening** | Tune into any broadcaster on the mesh | ✅ Stable |
-| 📻 **Playlist Management** | Automatic cycling, looping support | ✅ Stable |
-| 🌐 **Web GUI** | Browser-based control with WebSocket updates | ✅ Working |
-| 💻 **Terminal UI** | Beautiful command-line interface | ✅ Working |
-| 🔊 **High Quality** | Opus codec (128kbps, 48kHz stereo) | ✅ Stable |
-| 📡 **Subscription System** | Heartbeat-based connection management | ✅ Stable |
-| 🚨 **Emergency Priority** | Priority levels for critical broadcasts | ✅ Implemented |
+|  **Music Broadcasting** | Stream MP3 files from your music library |  Stable |
+|  **Listening** | Tune into any broadcaster on the mesh |  Stable |
+|  **Playlist Management** | Automatic cycling, looping support |  Stable |
+|  **Web GUI** | Browser-based control with WebSocket updates |  Working |
+|  **Terminal UI** | Beautiful command-line interface |  Working |
+|  **High Quality** | Opus codec (128kbps, 48kHz stereo) |  Stable |
+|  **Subscription System** | Heartbeat-based connection management |  Stable |
+|  **Emergency Priority** | Priority levels for critical broadcasts |  Implemented |
 
-### 🚧 In Development
+###  In Development
 
 - Voice broadcasting (microphone input)
 - Station discovery (mDNS/DHT)
@@ -112,27 +112,27 @@ cd meshradio
 
 ---
 
-## 🎯 Usage
+##  Usage
 
-### 🌐 Web GUI (Easiest)
+###  Web GUI (Easiest)
 
 ```bash
 ./meshradio --gui --callsign DJ-AWESOME --web-port 8080
 ```
 
 **Features:**
-- 🎙️ Start/stop broadcasting from your microphone
-- 🎧 Connect to remote stations by IPv6 address
-- 📊 Real-time status monitoring with WebSocket updates
-- 📡 Live signal strength indicators
-- 🎨 Clean, responsive interface
+-  Start/stop broadcasting from your microphone
+-  Connect to remote stations by IPv6 address
+-  Real-time status monitoring with WebSocket updates
+-  Live signal strength indicators
+-  Clean, responsive interface
 
 **Options:**
 - `--port 8799` - Audio port for RTP streaming (default: 8799)
 - `--web-port 8080` - HTTP port for web interface (default: 8080)
 - `--callsign NAME` - Your station callsign
 
-### 💻 Terminal UI
+###  Terminal UI
 
 ```bash
 ./meshradio --callsign YOUR-CALLSIGN
@@ -151,7 +151,7 @@ cd meshradio
 - `s` - Stop listening
 - `q` - Quit
 
-### 🎵 Music Broadcasting
+###  Music Broadcasting
 
 Stream your music library to the mesh:
 
@@ -174,22 +174,22 @@ Stream your music library to the mesh:
 
 **Output Example:**
 ```
-🔍 Scanning for MP3 files...
-✅ Found 93 MP3 file(s)
+ Scanning for MP3 files...
+ Found 93 MP3 file(s)
 
-📻 Playlist:
+ Playlist:
   1. 001. John Coltrane - Blue Train.mp3
   2. 002. Miles Davis - So What.mp3
   ...
 
-▶️  Now playing [1/93]: 001. John Coltrane - Blue Train.mp3
+  Now playing [1/93]: 001. John Coltrane - Blue Train.mp3
    Duration: 10m42s | Sample Rate: 44100 Hz
-🟢 Opus encoded: 3840 bytes → 321 bytes (12.0x compression)
+ Opus encoded: 3840 bytes → 321 bytes (12.0x compression)
 ```
 
 ---
 
-## 🔧 How It Works
+##  How It Works
 
 ### Architecture Overview
 
@@ -253,7 +253,7 @@ Network → UDP → RTP → Jitter Buffer → Opus Decoder → PCM → Speakers
 
 ---
 
-## 📊 Technical Specifications
+##  Technical Specifications
 
 ### Audio Quality
 
@@ -281,45 +281,45 @@ Network → UDP → RTP → Jitter Buffer → Opus Decoder → PCM → Speakers
 
 ---
 
-## 🐛 Recent Fixes
+##  Recent Fixes
 
 ### v0.3-alpha (December 2024)
 
-#### ✅ Critical: Shared SubscriptionManager Across Songs
+####  Critical: Shared SubscriptionManager Across Songs
 **Problem:** Subscribers disappeared when songs changed
 **Cause:** Each song created a new broadcaster with fresh SubscriptionManager
 **Fix:** Created shared SubscriptionManager passed to all broadcaster instances
 **Impact:** Seamless multi-hour playback without subscriber loss
 
-#### ✅ Critical: IPv6 Key Matching in Subscription Manager
+####  Critical: IPv6 Key Matching in Subscription Manager
 **Problem:** Heartbeats showed `Equal=true` but didn't update LastSeen
 **Cause:** IPv6 string representation inconsistency ("::1" vs "0:0:0:0:0:0:0:1")
 **Fix:** Use hex byte representation for consistent map keys
 **Impact:** Reliable heartbeat processing
 
-#### ✅ Major: Ticker-Based Packet Pacing
+####  Major: Ticker-Based Packet Pacing
 **Problem:** Audio bursting and jitter despite FFmpeg `-re` flag
 **Cause:** Broadcaster sent all available packets immediately
 **Fix:** Added `time.Ticker` to send exactly one packet every 20ms
 **Impact:** Smooth, jitter-free playback
 
-#### ✅ Major: Audio Callback Timeout Handling
+####  Major: Audio Callback Timeout Handling
 **Problem:** Spurious underruns even with full buffer
 **Cause:** `select` with immediate `default` case
 **Fix:** Changed to 5ms timeout before outputting silence
 **Impact:** Stable playback without false underruns
 
-#### ✅ Major: Web GUI Port Separation
+####  Major: Web GUI Port Separation
 **Problem:** Web server conflicted with audio port
 **Fix:** Added `--web-port` flag, separated HTTP and RTP ports
 **Impact:** Web GUI now works alongside audio streaming
 
 ---
 
-## 🔧 Troubleshooting
+##  Troubleshooting
 
 ### Audio playback stops after 1-2 minutes
-**Status:** ✅ FIXED in v0.3-alpha
+**Status:**  FIXED in v0.3-alpha
 
 Update to latest version. This was caused by:
 1. Subscriber disappearing when songs changed → Fixed with shared SubscriptionManager
@@ -344,7 +344,7 @@ Update to latest version. This was caused by:
 
 ---
 
-## 🛠️ Development
+##  Development
 
 ### Project Structure
 
@@ -382,7 +382,7 @@ go test ./...
 
 ---
 
-## 🤝 Contributing
+##  Contributing
 
 Contributions welcome! Areas needing help:
 
@@ -402,13 +402,13 @@ Contributions welcome! Areas needing help:
 
 ---
 
-## 📝 License
+##  License
 
 GPL-3.0 License - see [LICENSE](LICENSE) file
 
 ---
 
-## 🙏 Credits
+##  Credits
 
 Built with:
 - **Yggdrasil** - Mesh networking platform
@@ -420,7 +420,7 @@ Built with:
 
 ---
 
-## 📞 Contact
+##  Contact
 
 - **GitHub**: https://github.com/immartian/meshradio
 - **Issues**: https://github.com/immartian/meshradio/issues
@@ -430,10 +430,10 @@ Built with:
 
 <div align="center">
 
-**Made with ❤️ for the decentralized web**
+**Made with  for the decentralized web**
 
 *Note: This is alpha software under active development. Expect bugs and breaking changes.*
 
-[⬆ Back to Top](#-meshradio)
+[ Back to Top](#-meshradio)
 
 </div>
