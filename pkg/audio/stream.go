@@ -2,6 +2,7 @@ package audio
 
 import (
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -121,6 +122,7 @@ type OutputStream struct {
 	device         *malgo.Device
 	callbackCount  uint64 // Track callback invocations
 	framesConsumed uint64 // Track frames consumed from buffer
+	debugLog       *os.File // Debug log file for playback callback
 }
 
 // NewOutputStream creates a new audio output stream
@@ -140,6 +142,16 @@ func (out *OutputStream) Start() error {
 	if out.running {
 		return fmt.Errorf("stream already running")
 	}
+
+	// Open debug log file for playback callback
+	debugLog, err := os.Create("/tmp/meshradio-playback.log")
+	if err != nil {
+		return fmt.Errorf("failed to create debug log: %w", err)
+	}
+	out.debugLog = debugLog
+	fmt.Fprintf(out.debugLog, "=== MeshRadio Playback Debug Log ===\n")
+	fmt.Fprintf(out.debugLog, "Config: %d Hz, %d channels, frameSize=%d\n\n",
+		out.config.SampleRate, out.config.Channels, out.config.FrameSize)
 
 	// Initialize malgo context
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
@@ -168,7 +180,12 @@ func (out *OutputStream) Start() error {
 
 		// Log first callback to confirm it's being invoked
 		if out.callbackCount == 1 {
-			fmt.Printf("🎯 First playback callback! framecount=%d, outputSize=%d\n", framecount, len(pOutputSample))
+			msg := fmt.Sprintf("🎯 First playback callback! framecount=%d, outputSize=%d\n", framecount, len(pOutputSample))
+			fmt.Print(msg)
+			if out.debugLog != nil {
+				fmt.Fprint(out.debugLog, msg)
+				out.debugLog.Sync()
+			}
 		}
 
 		// Calculate expected bytes (framecount is frames, not samples)
@@ -190,8 +207,13 @@ func (out *OutputStream) Start() error {
 
 			// Log every 10 callbacks for more frequent feedback
 			if out.callbackCount%10 == 0 {
-				fmt.Printf("🔊 Playback: callback=%d, consumed=%d, buffer=%d/%d, framecount=%d, frameSize=%d, expected=%d\n",
+				msg := fmt.Sprintf("🔊 Playback: callback=%d, consumed=%d, buffer=%d/%d, framecount=%d, frameSize=%d, expected=%d\n",
 					out.callbackCount, out.framesConsumed, len(out.frames), cap(out.frames), framecount, len(frame), expectedBytes)
+				fmt.Print(msg)
+				if out.debugLog != nil {
+					fmt.Fprint(out.debugLog, msg)
+					out.debugLog.Sync()
+				}
 			}
 		default:
 			// No frame available, output silence
@@ -201,8 +223,13 @@ func (out *OutputStream) Start() error {
 
 			// Log buffer underrun periodically
 			if out.callbackCount%50 == 0 {
-				fmt.Printf("⚠️  Playback underrun: callback=%d, buffer empty (expected framecount=%d)\n",
+				msg := fmt.Sprintf("⚠️  Playback underrun: callback=%d, buffer empty (expected framecount=%d)\n",
 					out.callbackCount, framecount)
+				fmt.Print(msg)
+				if out.debugLog != nil {
+					fmt.Fprint(out.debugLog, msg)
+					out.debugLog.Sync()
+				}
 			}
 		}
 	}
@@ -253,6 +280,13 @@ func (out *OutputStream) Stop() {
 		out.ctx = nil
 	}
 
+	// Close debug log
+	if out.debugLog != nil {
+		fmt.Fprintf(out.debugLog, "\n=== Playback stopped ===\n")
+		out.debugLog.Close()
+		out.debugLog = nil
+	}
+
 	close(out.stopChan)
 	out.running = false
 	fmt.Println("🔇 Audio playback stopped")
@@ -260,6 +294,14 @@ func (out *OutputStream) Stop() {
 
 // Write queues an audio frame for playback
 func (out *OutputStream) Write(frame []byte) error {
+	// Log write operations to debug file
+	if out.debugLog != nil && out.callbackCount > 0 && out.callbackCount < 200 {
+		// Log first 200 writes to correlate with callbacks
+		fmt.Fprintf(out.debugLog, "Write: frame size=%d, buffer=%d/%d, callbacks=%d\n",
+			len(frame), len(out.frames), cap(out.frames), out.callbackCount)
+		out.debugLog.Sync()
+	}
+
 	select {
 	case out.frames <- frame:
 		return nil
@@ -267,7 +309,12 @@ func (out *OutputStream) Write(frame []byte) error {
 		return fmt.Errorf("stream stopped")
 	default:
 		// Buffer full, drop frame
-		fmt.Printf("⚠️  Audio buffer full, dropping frame (buffer=%d/%d)\n", len(out.frames), cap(out.frames))
+		msg := fmt.Sprintf("⚠️  Audio buffer full, dropping frame (buffer=%d/%d)\n", len(out.frames), cap(out.frames))
+		fmt.Print(msg)
+		if out.debugLog != nil {
+			fmt.Fprint(out.debugLog, msg)
+			out.debugLog.Sync()
+		}
 		return nil
 	}
 }

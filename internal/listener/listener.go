@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/meshradio/meshradio/pkg/audio"
@@ -175,7 +176,9 @@ func (l *Listener) receiveLoop() {
 		// Handle different packet types
 		switch packet.Type {
 		case protocol.PacketTypeAudio:
-			l.handleAudioPacket(packet)
+			// Decode audio in separate goroutine to avoid blocking receive loop
+			// This prevents packets from queuing up in the network buffer
+			go l.handleAudioPacket(packet)
 		case protocol.PacketTypeBeacon:
 			l.handleBeacon(packet)
 		case protocol.PacketTypeMetadata:
@@ -186,7 +189,8 @@ func (l *Listener) receiveLoop() {
 
 // handleAudioPacket processes an audio packet
 func (l *Listener) handleAudioPacket(packet *protocol.Packet) {
-	l.packetsReceived++
+	// Thread-safe increment since this runs in goroutines
+	count := atomic.AddUint64(&l.packetsReceived, 1)
 
 	// Get priority from packet (Layer 5: Emergency)
 	priority := packet.GetPriority()
@@ -215,14 +219,14 @@ func (l *Listener) handleAudioPacket(packet *protocol.Packet) {
 	l.audioOut.Write(pcm)
 
 	// Log periodically with priority indicator
-	if l.packetsReceived%50 == 0 {
+	if count%50 == 0 {
 		priorityStr := ""
 		if priority > 0 {
 			p := emergency.Priority(priority)
 			priorityStr = fmt.Sprintf(" [%s]", p.String())
 		}
 		fmt.Printf("Received: packets=%d, seq=%d, from=%s%s\n",
-			l.packetsReceived, packet.SequenceNum, packet.GetCallsign(), priorityStr)
+			count, packet.SequenceNum, packet.GetCallsign(), priorityStr)
 	}
 
 	l.lastSeqNum = packet.SequenceNum
@@ -276,7 +280,7 @@ func (l *Listener) handleMetadata(packet *protocol.Packet) {
 func (l *Listener) GetStats() (packetsReceived uint64, lastSeq uint8, station string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.packetsReceived, l.lastSeqNum, l.stationCallsign
+	return atomic.LoadUint64(&l.packetsReceived), l.lastSeqNum, l.stationCallsign
 }
 
 // IsRunning returns whether the listener is running
