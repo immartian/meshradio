@@ -163,6 +163,9 @@ func (l *Listener) Stop() error {
 
 // receiveLoop continuously receives and plays audio packets
 func (l *Listener) receiveLoop() {
+	lastReceiveTime := time.Now()
+	noPacketWarned := false
+
 	for {
 		select {
 		case <-l.stopChan:
@@ -173,11 +176,19 @@ func (l *Listener) receiveLoop() {
 		// Receive packet
 		packet, err := l.transport.Receive()
 		if err != nil {
+			// Warn if we haven't received packets for >5 seconds
+			if time.Since(lastReceiveTime) > 5*time.Second && !noPacketWarned {
+				fmt.Printf("⚠️  No packets received for >5s (last: %v ago)\n", time.Since(lastReceiveTime))
+				noPacketWarned = true
+			}
 			if l.running {
 				time.Sleep(100 * time.Millisecond)
 			}
 			continue
 		}
+
+		lastReceiveTime = time.Now()
+		noPacketWarned = false
 
 		// Handle different packet types
 		switch packet.Type {
@@ -387,7 +398,9 @@ func (l *Listener) heartbeatLoop() {
 			)
 
 			err := l.transport.Send(packet, l.targetIPv6, l.targetPort)
-			if err == nil {
+			if err != nil {
+				fmt.Printf("⚠️  Failed to send heartbeat: %v\n", err)
+			} else {
 				l.lastHeartbeat = time.Now()
 			}
 

@@ -38,6 +38,7 @@ func (f *FFmpegSource) Start() error {
 	}
 
 	// Build ffmpeg command to decode MP3 to raw PCM
+	// -stream_loop -1: loop input file infinitely
 	// -re: read input at native framerate (realtime) - CRITICAL for live streaming
 	// -i input.mp3: input file
 	// -f s16le: output format (signed 16-bit little-endian)
@@ -45,6 +46,7 @@ func (f *FFmpegSource) Start() error {
 	// -ac 2: output channels (stereo)
 	// pipe:1: output to stdout
 	args := []string{
+		"-stream_loop", "-1", // Loop infinitely for music playback
 		"-re", // Read at realtime rate - prevents burst decoding!
 		"-i", f.filepath,
 		"-f", "s16le",

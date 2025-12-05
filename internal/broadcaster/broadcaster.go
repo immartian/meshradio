@@ -358,10 +358,12 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 func (b *Broadcaster) handleHeartbeat(packet *protocol.Packet) {
 	hb, err := protocol.UnmarshalHeartbeat(packet.Payload)
 	if err != nil {
+		fmt.Printf("⚠️  Failed to unmarshal heartbeat: %v\n", err)
 		return
 	}
 
 	listenerIP := protocol.BytesToIPv6(hb.ListenerIPv6)
+	updated := false
 
 	// Update heartbeat in subscription manager for all groups
 	// (listener might be subscribed to multiple groups)
@@ -369,9 +371,19 @@ func (b *Broadcaster) handleHeartbeat(packet *protocol.Packet) {
 		subs := b.subManager.GetSubscribers(group)
 		for _, sub := range subs {
 			if sub.IPv6.Equal(listenerIP) {
-				b.subManager.Heartbeat(group, listenerIP, sub.Port)
+				err := b.subManager.Heartbeat(group, listenerIP, sub.Port)
+				if err != nil {
+					fmt.Printf("⚠️  Failed to update heartbeat for %s:%d in group %s: %v\n",
+						listenerIP, sub.Port, group, err)
+				} else {
+					updated = true
+				}
 			}
 		}
+	}
+
+	if !updated {
+		fmt.Printf("⚠️  Received heartbeat from unknown listener: %s (no matching subscriber found)\n", listenerIP)
 	}
 
 	// Legacy: Also update old listeners map for backward compatibility
@@ -404,10 +416,13 @@ func (b *Broadcaster) heartbeatMonitor() {
 			b.subManager.RegisterBroadcaster(b.group, broadcaster)
 
 			// Prune stale subscribers using multicast overlay
+			beforeSubs := len(b.subManager.GetSubscribers(b.group))
 			prunedSubs, prunedBroadcasters := b.subManager.PruneStale(15 * time.Second)
+			afterSubs := len(b.subManager.GetSubscribers(b.group))
+
 			if prunedSubs > 0 || prunedBroadcasters > 0 {
-				fmt.Printf("Pruned %d stale subscriber(s), %d broadcaster(s)\n",
-					prunedSubs, prunedBroadcasters)
+				fmt.Printf("⚠️  Pruned %d stale subscriber(s), %d broadcaster(s) (group '%s': %d -> %d subscribers)\n",
+					prunedSubs, prunedBroadcasters, b.group, beforeSubs, afterSubs)
 			}
 
 			// Legacy: Also prune old listeners map
