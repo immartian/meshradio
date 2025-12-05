@@ -34,6 +34,7 @@ type Server struct {
 	ipv6        net.IP
 	broadcaster *broadcaster.Broadcaster
 	listener    *listener.Listener
+	targetIPv6  net.IP // Target IPv6 when listening
 	clients     map[*websocket.Conn]bool
 	clientsMu   sync.Mutex
 	broadcast   chan StatusUpdate
@@ -157,7 +158,16 @@ func (s *Server) getStatus() StatusUpdate {
 	} else if s.listener != nil && s.listener.IsRunning() {
 		status.Mode = "listening"
 		packets, _, station := s.listener.GetStats()
-		status.Station = station
+		// If no station callsign, show target IPv6 instead
+		if station == "" || station == "unknown" {
+			if s.targetIPv6 != nil {
+				status.Station = s.targetIPv6.String()
+			} else {
+				status.Station = "unknown"
+			}
+		} else {
+			status.Station = station
+		}
 		status.PacketCount = packets
 	}
 
@@ -265,6 +275,7 @@ func (s *Server) handleListenStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.listener = l
+	s.targetIPv6 = targetIPv6 // Store target IPv6 for display
 	json.NewEncoder(w).Encode(map[string]string{"status": "listening", "target": req.IPv6})
 }
 
@@ -278,6 +289,7 @@ func (s *Server) handleListenStop(w http.ResponseWriter, r *http.Request) {
 	if s.listener != nil {
 		s.listener.Stop()
 		s.listener = nil
+		s.targetIPv6 = nil // Clear target IPv6
 	}
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "stopped"})
