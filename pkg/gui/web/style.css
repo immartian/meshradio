@@ -374,6 +374,21 @@ footer a:hover {
     border-bottom-color: #fff;
 }
 
+/* Network Visualization Link */
+.network-viz-link {
+    text-decoration: none;
+    font-size: 1.8rem;
+    float: right;
+    margin-left: 10px;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    opacity: 0.8;
+}
+
+.network-viz-link:hover {
+    opacity: 1;
+    transform: scale(1.2);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     header h1 {
