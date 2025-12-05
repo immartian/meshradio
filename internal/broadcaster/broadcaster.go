@@ -307,6 +307,9 @@ func (b *Broadcaster) handleSubscribe(packet *protocol.Packet) {
 	listenerIP := protocol.BytesToIPv6(sub.ListenerIPv6)
 	callsign := protocol.GetCallsignString(sub.Callsign)
 
+	fmt.Printf("DEBUG: handleSubscribe: raw bytes=%x, len=%d, IP.String()=%s, IP.To16()=%x\n",
+		sub.ListenerIPv6[:8], len(sub.ListenerIPv6), listenerIP.String(), listenerIP.To16()[:8])
+
 	// Extract group name (use broadcaster's group if not specified)
 	group := protocol.GetGroupString(sub.Group)
 	if group == "" {
