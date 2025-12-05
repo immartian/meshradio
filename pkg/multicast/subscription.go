@@ -55,6 +55,7 @@ func (sm *SubscriptionManager) Unsubscribe(req UnsubscribeRequest) error {
 
 	// Remove group if empty
 	if group.SubscriberCount() == 0 && group.BroadcasterCount() == 0 {
+		fmt.Printf("DEBUG: Deleting empty group '%s' after Unsubscribe\n", req.Group)
 		delete(sm.groups, req.Group)
 	}
 
@@ -115,6 +116,7 @@ func (sm *SubscriptionManager) RegisterBroadcaster(group string, broadcaster *Br
 
 	// Create group if it doesn't exist
 	if _, exists := sm.groups[group]; !exists {
+		fmt.Printf("DEBUG: RegisterBroadcaster creating new group '%s'\n", group)
 		sm.groups[group] = NewGroup(group)
 	}
 
@@ -143,6 +145,7 @@ func (sm *SubscriptionManager) UnregisterBroadcaster(group string, ipv6 net.IP) 
 
 	// Remove group if empty
 	if g.SubscriberCount() == 0 && g.BroadcasterCount() == 0 {
+		fmt.Printf("DEBUG: Deleting empty group '%s' after UnregisterBroadcaster\n", group)
 		delete(sm.groups, group)
 	}
 
@@ -184,6 +187,7 @@ func (sm *SubscriptionManager) DeleteGroup(name string) error {
 		return fmt.Errorf("group not found: %s", name)
 	}
 
+	fmt.Printf("DEBUG: Deleting group '%s' (explicit DeleteGroup call)\n", name)
 	delete(sm.groups, name)
 	return nil
 }

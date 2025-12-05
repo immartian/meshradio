@@ -20,6 +20,7 @@ func makeSubscriberKey(ipv6 net.IP, port int) string {
 
 // NewGroup creates a new multicast group
 func NewGroup(name string) *Group {
+	fmt.Printf("DEBUG: NewGroup created: %s\n", name)
 	return &Group{
 		Name:         name,
 		Subscribers:  make(map[string]*Subscriber),
