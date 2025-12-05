@@ -188,11 +188,20 @@ func (b *Broadcaster) broadcastLoop() {
 
 	fmt.Println("Broadcast loop started")
 
+	// Calculate frame duration for pacing
+	frameDuration := time.Duration(b.config.FrameSize) * time.Second / time.Duration(b.config.SampleRate)
+	fmt.Printf("Broadcaster: frame duration = %v (paced sending)\n", frameDuration)
+
+	// Create ticker for paced sending (ensure exactly 20ms between packets)
+	ticker := time.NewTicker(frameDuration)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-b.stopChan:
 			return
-		default:
+		case <-ticker.C:
+			// Send one frame per tick (paced at realtime rate)
 		}
 
 		// Debug: log every 10 frames to see if loop continues
