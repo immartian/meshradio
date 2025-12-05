@@ -344,6 +344,24 @@ Update to latest version. This was caused by:
 2. Verify CPU usage isn't excessive
 3. Check for packet loss in logs
 
+### Debugging and Logs
+
+MeshRadio uses a structured logging system with automatic rotation. Logs are stored in `~/.meshradio/logs/`:
+
+```bash
+# View playback logs
+tail -f ~/.meshradio/logs/playback.log
+
+# Enable debug logging
+export MESHRADIO_LOG_LEVEL=DEBUG
+./meshradio --gui --callsign DEBUG-STATION
+
+# Custom log directory
+export MESHRADIO_LOG_DIR=/tmp/meshradio-logs
+```
+
+See [LOGGING.md](LOGGING.md) for complete documentation.
+
 ---
 
 ##  Development

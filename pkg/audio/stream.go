@@ -2,11 +2,11 @@ package audio
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/gen2brain/malgo"
+	"github.com/meshradio/meshradio/pkg/logging"
 )
 
 // StreamConfig holds audio stream configuration
@@ -120,17 +120,25 @@ type OutputStream struct {
 	stopChan       chan struct{}
 	ctx            *malgo.AllocatedContext
 	device         *malgo.Device
-	callbackCount  uint64 // Track callback invocations
-	framesConsumed uint64 // Track frames consumed from buffer
-	debugLog       *os.File // Debug log file for playback callback
+	callbackCount  uint64          // Track callback invocations
+	framesConsumed uint64          // Track frames consumed from buffer
+	logger         *logging.Logger // Logger for playback debugging
 }
 
 // NewOutputStream creates a new audio output stream
 func NewOutputStream(config StreamConfig) *OutputStream {
+	// Create logger for playback
+	logger, err := logging.NewLogger(logging.DefaultConfig("playback"))
+	if err != nil {
+		fmt.Printf("Warning: Failed to create playback logger: %v\n", err)
+		// Continue without logger rather than failing
+	}
+
 	return &OutputStream{
 		config:   config,
 		frames:   make(chan []byte, 150), // 150 frames = 3 seconds buffer for network jitter
 		stopChan: make(chan struct{}),
+		logger:   logger,
 	}
 }
 
@@ -143,15 +151,11 @@ func (out *OutputStream) Start() error {
 		return fmt.Errorf("stream already running")
 	}
 
-	// Open debug log file for playback callback
-	debugLog, err := os.Create("/tmp/meshradio-playback.log")
-	if err != nil {
-		return fmt.Errorf("failed to create debug log: %w", err)
+	// Log playback start
+	if out.logger != nil {
+		out.logger.Info("Starting audio playback: %d Hz, %d channels, frameSize=%d",
+			out.config.SampleRate, out.config.Channels, out.config.FrameSize)
 	}
-	out.debugLog = debugLog
-	fmt.Fprintf(out.debugLog, "=== MeshRadio Playback Debug Log ===\n")
-	fmt.Fprintf(out.debugLog, "Config: %d Hz, %d channels, frameSize=%d\n\n",
-		out.config.SampleRate, out.config.Channels, out.config.FrameSize)
 
 	// Initialize malgo context
 	ctx, err := malgo.InitContext(nil, malgo.ContextConfig{}, nil)
@@ -194,12 +198,9 @@ func (out *OutputStream) Start() error {
 
 			// Log every 250 callbacks (every ~5 seconds)
 			if out.callbackCount%250 == 0 {
-				msg := fmt.Sprintf("🔊 Playback: callback=%d, buffer=%d/%d\n",
-					out.callbackCount, len(out.frames), cap(out.frames))
-				fmt.Print(msg)
-				if out.debugLog != nil {
-					fmt.Fprint(out.debugLog, msg)
-					out.debugLog.Sync()
+				if out.logger != nil {
+					out.logger.Debug("Playback: callback=%d, buffer=%d/%d",
+						out.callbackCount, len(out.frames), cap(out.frames))
 				}
 			}
 		case <-time.After(5 * time.Millisecond):
@@ -211,12 +212,9 @@ func (out *OutputStream) Start() error {
 
 			// Log underrun less frequently to avoid spam
 			if out.callbackCount%50 == 0 {
-				msg := fmt.Sprintf("⚠️  Playback underrun: callback=%d, buffer=%d/%d, timeout waiting for frame\n",
-					out.callbackCount, len(out.frames), cap(out.frames))
-				fmt.Print(msg)
-				if out.debugLog != nil {
-					fmt.Fprint(out.debugLog, msg)
-					out.debugLog.Sync()
+				if out.logger != nil {
+					out.logger.Warn("Playback underrun: callback=%d, buffer=%d/%d, timeout waiting for frame",
+						out.callbackCount, len(out.frames), cap(out.frames))
 				}
 			}
 		}
@@ -280,15 +278,17 @@ func (out *OutputStream) Stop() {
 		case <-done:
 			// Cleanup completed
 		case <-time.After(1 * time.Second):
-			fmt.Println("Warning: Audio device cleanup timed out")
+			if out.logger != nil {
+				out.logger.Warn("Audio device cleanup timed out")
+			}
 		}
 	}
 
-	// Close debug log
-	if out.debugLog != nil {
-		fmt.Fprintf(out.debugLog, "\n=== Playback stopped ===\n")
-		out.debugLog.Close()
-		out.debugLog = nil
+	// Close logger
+	if out.logger != nil {
+		out.logger.Info("Audio playback stopped")
+		out.logger.Close()
+		out.logger = nil
 	}
 
 	fmt.Println("Audio playback stopped")
@@ -303,11 +303,8 @@ func (out *OutputStream) Write(frame []byte) error {
 		return fmt.Errorf("stream stopped")
 	default:
 		// Buffer full, drop frame
-		msg := fmt.Sprintf("⚠️  Audio buffer full, dropping frame (buffer=%d/%d)\n", len(out.frames), cap(out.frames))
-		fmt.Print(msg)
-		if out.debugLog != nil {
-			fmt.Fprint(out.debugLog, msg)
-			out.debugLog.Sync()
+		if out.logger != nil {
+			out.logger.Warn("Audio buffer full, dropping frame (buffer=%d/%d)", len(out.frames), cap(out.frames))
 		}
 		return nil
 	}
