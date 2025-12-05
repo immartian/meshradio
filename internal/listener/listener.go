@@ -42,6 +42,9 @@ type Listener struct {
 	// Emergency handling (Layer 5)
 	emergencySettings emergency.EmergencySettings
 	lastPriority      uint8
+
+	// Decode queue - to offload decoding from receive loop
+	decodeQueue chan *protocol.Packet
 }
 
 // Config holds listener configuration
@@ -96,6 +99,7 @@ func New(cfg Config) (*Listener, error) {
 		config:            cfg.AudioConfig,
 		stopChan:          make(chan struct{}),
 		emergencySettings: emergency.DefaultSettings(),
+		decodeQueue:       make(chan *protocol.Packet, 100), // Buffer 100 packets for decoding
 	}, nil
 }
 
@@ -124,6 +128,9 @@ func (l *Listener) Start() error {
 		return fmt.Errorf("failed to subscribe: %w", err)
 	}
 
+	// Start decode worker (single goroutine for thread-safe codec access)
+	go l.decodeWorker()
+
 	// Start receive loop
 	go l.receiveLoop()
 
@@ -146,6 +153,7 @@ func (l *Listener) Stop() error {
 
 	l.running = false
 	close(l.stopChan)
+	close(l.decodeQueue) // Stop decode worker
 
 	l.audioOut.Stop()
 	l.transport.Stop()
@@ -176,9 +184,14 @@ func (l *Listener) receiveLoop() {
 		// Handle different packet types
 		switch packet.Type {
 		case protocol.PacketTypeAudio:
-			// Decode audio in separate goroutine to avoid blocking receive loop
-			// This prevents packets from queuing up in the network buffer
-			go l.handleAudioPacket(packet)
+			// Queue packet for decoding (non-blocking with buffered channel)
+			// This allows receive loop to drain network socket quickly
+			select {
+			case l.decodeQueue <- packet:
+			default:
+				// Queue full, drop packet (should rarely happen with 100 buffer)
+				fmt.Printf("⚠️  Decode queue full, dropping audio packet\n")
+			}
 		case protocol.PacketTypeBeacon:
 			l.handleBeacon(packet)
 		case protocol.PacketTypeMetadata:
@@ -187,9 +200,19 @@ func (l *Listener) receiveLoop() {
 	}
 }
 
+// decodeWorker processes audio packets from the decode queue
+// Runs in a single goroutine to ensure thread-safe codec access and packet ordering
+func (l *Listener) decodeWorker() {
+	fmt.Println("Decode worker started")
+	for packet := range l.decodeQueue {
+		l.handleAudioPacket(packet)
+	}
+	fmt.Println("Decode worker stopped")
+}
+
 // handleAudioPacket processes an audio packet
 func (l *Listener) handleAudioPacket(packet *protocol.Packet) {
-	// Thread-safe increment since this runs in goroutines
+	// Thread-safe increment
 	count := atomic.AddUint64(&l.packetsReceived, 1)
 
 	// Get priority from packet (Layer 5: Emergency)
